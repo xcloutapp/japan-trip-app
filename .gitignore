@@ -1,0 +1,6 @@
+# Never commit the unlocked trip details or the family code
+trip.json
+data/trip.json
+family-code.txt
+.DS_Store
+node_modules/

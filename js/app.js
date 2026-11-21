@@ -529,6 +529,7 @@ function ticketPage(id) {
     ${header(esc(k.title), `${fmt(k.date)} · ${esc(k.detail)}`, '#FFC93C', true)}
     ${k.print ? `<div class="note note-yellow">${I.printer(36)}<div><p class="title">Print these before we go</p><p>The gates only take paper tickets.</p></div></div>` : ''}
     ${qrs.length ? `<div class="section"><p class="section-title">Scan at the gate</p><div class="stack">${qrs.map((f) => `<figure class="card qr-card"><img data-file="${f.src}" data-zoom data-qr alt="${esc(f.label)}"><figcaption><b>${esc(f.label)}</b><br>Tap the code to show it full screen. Turn your screen brightness up.</figcaption></figure>`).join('')}</div></div>` : ''}
+    ${k.seats ? seatTickets(k) : ''}
     ${(k.refs || []).length ? `<div class="section"><div class="stack tight">${k.refs.map((r) => `<button type="button" class="card ref-card" data-copy="${esc(r.value)}"><span class="eyebrow">${esc(r.label)}</span><span class="ref-big">${esc(r.value)}</span><span class="copy-hint">Tap to copy</span></button>`).join('')}</div></div>` : ''}
     ${(k.people || []).length ? `<div class="section"><p class="section-title">${esc(k.people[0].label)} for each person</p><div class="card phrase-list">${k.people.map((p) => `<button type="button" class="phrase" data-copy="${esc(p.value)}"><span class="grow en">${esc(p.name)}</span><span class="mono">${esc(p.value)}</span></button>`).join('')}</div></div>` : ''}
     ${files.length ? `<div class="section"><p class="section-title">Tickets and QR codes</p><div class="stack">${files.map((f) => `<figure class="card ticket-pic"><img data-file="${f.src}" alt="${esc(f.label)}"><figcaption>${esc(f.label)}</figcaption></figure>`).join('')}</div></div>` : ''}
@@ -542,6 +543,21 @@ function ticketPage(id) {
   </div>`;
 }
 
+// Tickets with one QR code per person (bullet trains): you see your own, parents see everyone's.
+function seatTickets(k) {
+  const who = S.me();
+  const mine = k.seats.find((x) => x.name === who);
+  const label = (x) => `${x.name}: Car ${x.car}, seat ${x.seat}`;
+  const card = (x, big) => `<figure class="card qr-card${big ? '' : ' small'}"><img data-file="${x.file}" data-zoom data-qr data-caption="${esc(label(x))}" alt="QR ticket for ${esc(x.name)}"><figcaption><b>${esc(big ? `Car ${x.car}, seat ${x.seat}` : x.name)}</b>${big ? '<br>Tap the code to show it full screen at the ticket gate.' : `<br>Car ${x.car}, seat ${esc(x.seat)}`}</figcaption></figure>`;
+  const own = mine
+    ? `<div class="section"><p class="section-title">Your ticket, ${esc(who)}</p>${card(mine, true)}</div>`
+    : `<div class="section"><a class="card card-link pad" href="#/me"><span class="grow"><span class="title" style="display:block">Who are you?</span><span class="sub" style="display:block">Pick your name to see your own ticket.</span></span>${I.chevron()}</a></div>`;
+  const all = S.parent()
+    ? `<div class="section"><p class="section-title">Everyone's tickets (parent view)</p><div class="qr-grid">${k.seats.map((x) => card(x, false)).join('')}</div></div>`
+    : '';
+  return own + all;
+}
+
 async function hydrate() {
   for (const img of app.querySelectorAll('img[data-file]')) {
     try { img.src = await openFile(T, img.dataset.file); } catch { img.alt = 'Could not open this picture. Connect to the internet once and try again.'; }
@@ -552,10 +568,10 @@ async function hydrate() {
   }
 }
 
-function zoom(src, qr) {
+function zoom(src, qr, caption) {
   const el = document.createElement('div');
   el.className = `big-show photo-zoom${qr ? ' qr-zoom' : ''}`;
-  el.innerHTML = `<img src="${src}" alt=""><div class="big-actions"><button type="button" data-act="close">Close</button></div>`;
+  el.innerHTML = `${caption ? `<p class="zoom-cap">${esc(caption)}</p>` : ''}<img src="${src}" alt=""><div class="big-actions"><button type="button" data-act="close">Close</button></div>`;
   el.addEventListener('click', () => el.remove());
   document.body.appendChild(el);
 }
@@ -1284,7 +1300,7 @@ app.addEventListener('click', async (e) => {
   } else if (t.dataset.remove) {
     await removePhoto(Number(t.dataset.remove));
     hydrate();
-  } else if ('zoom' in t.dataset) zoom(t.src, 'qr' in t.dataset);
+  } else if ('zoom' in t.dataset) zoom(t.src, 'qr' in t.dataset, t.dataset.caption);
 });
 app.addEventListener('submit', async (e) => {
   e.preventDefault();

@@ -1,12 +1,28 @@
 // Keeps the whole app on the phone so it works with no signal.
 // tools/release.mjs refreshes VERSION and FILES before each release.
-const VERSION = '202611212104';
+const VERSION = '202611212242';
 const CACHE = `japan-${VERSION}`;
 const FILES = [
   "./",
   "css/app.css",
   "data/files/parking-p7.enc",
   "data/files/parking-qr.enc",
+  "data/files/t17-11A.enc",
+  "data/files/t17-11B.enc",
+  "data/files/t17-11C.enc",
+  "data/files/t17-11D.enc",
+  "data/files/t17-11E.enc",
+  "data/files/t17-12A.enc",
+  "data/files/t17-12B.enc",
+  "data/files/t17-12C.enc",
+  "data/files/t18-5A.enc",
+  "data/files/t18-5B.enc",
+  "data/files/t18-5C.enc",
+  "data/files/t18-5D.enc",
+  "data/files/t18-6A.enc",
+  "data/files/t18-6B.enc",
+  "data/files/t18-6C.enc",
+  "data/files/t18-6D.enc",
   "data/files/usj-1.enc",
   "data/trip.enc.json",
   "fonts/inter.woff2",

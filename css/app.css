@@ -465,3 +465,4 @@ a.ticket-slot { color: var(--ink); }
 .qr-card.small { padding: 10px; }
 .qr-card.small figcaption { font-size: 13px; margin-top: 6px; }
 .zoom-cap { font-family: var(--head); font-weight: 900; font-size: 24px; color: var(--ink); margin: 0; }
+.btn.klook { background: #FF5B00; color: #FFFFFF; }

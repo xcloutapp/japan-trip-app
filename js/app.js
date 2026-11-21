@@ -125,6 +125,7 @@ function home() {
       <a class="wide-tile" href="#/places"><img src="${placeImg}" alt=""><span>Places and big days</span></a>
       <a class="big-tile small" href="#/phrases" style="background:#D6F1F8"><span class="say" lang="ja">こんにちは</span><span>Phrases and translate</span></a>
     </div>
+    ${familyTiles()}
     <div class="section">
       <a class="row section-link" href="#/weather"><span class="section-title grow" style="margin:0">${during ? 'Weather today and tomorrow' : 'Weather in Japan'}</span><span class="more">All days ${I.chevron(16)}</span></a>
       <div class="stack tight" data-weather="next" style="margin-top:10px"><p class="sub">Loading the weather…</p></div>
@@ -146,7 +147,7 @@ function home() {
         <span class="grow" style="font-size:15px">${esc(summariseTodo(todo))}</span>
         ${I.chevron()}
       </a></div>` : ''}
-    <div class="section"><div class="link-row" style="justify-content:center;margin:0"><a href="#/mornings">${I.clock(20)} Morning plans</a><a href="#/parent">${I.lock(18)} ${S.parent() ? `Parent mode (${esc(S.parent())})` : 'Parent mode'}</a></div></div>
+    <div class="section"><div class="link-row" style="justify-content:center;margin:0"><a href="#/mornings">${I.clock(20)} Morning plans</a><a href="#/parent">${I.lock(18)} ${S.parent() ? `Parent mode (${esc(S.parent())})` : 'Parent mode'}</a><a href="#/me">${S.me() ? `This phone: ${esc(S.me())}` : 'Who are you?'}</a></div></div>
     <p class="small-print" style="margin-top:12px">Trip details updated ${fmt(T.updated)}</p>
     <div class="end-space"></div>
   </div>`;
@@ -598,7 +599,7 @@ function morning(date) {
       <p class="ready-count">${count === names.length ? 'Everyone is ready. Let’s go!' : `${count} of ${names.length} ready`}</p>
       ${isParent && notReady.length && count ? `<p class="sub" style="text-align:center">Still getting ready: ${esc(notReady.join(', '))}</p>` : ''}
     </div>
-    <div class="note note-blue">${I.clock(36)}<div><p class="title">${S.changedTimes(date) ? 'Times changed by a parent' : 'Suggested times'}</p><p>Parents can change these with the parent PIN. For now, ticks and changes stay on this phone. The family sharing update will show them on everyone's phone, with reminders 10 minutes before each time.</p></div></div>`}
+    <div class="note note-blue">${I.clock(36)}<div><p class="title">${S.changedTimes(date) ? 'Times changed by a parent' : 'Suggested times'}</p><p>Parents can change these with the parent PIN. Ticks and time changes show on everyone's phone.</p></div></div>${syncLine()}`}
     <div class="end-space"></div>
   </div>`;
 }
@@ -672,6 +673,189 @@ function notFound() {
   return `<div class="screen">${header('Not found', 'That page is not in the trip.', 'var(--ink)')}</div>`;
 }
 
+/* ---------- family sharing: who am I, messages, Shout, photo diary ---------- */
+const timeStr = (ms) => { const d = new Date(ms); return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() < 12 ? 'am' : 'pm'}`; };
+const dayStr = (ms) => fmt(iso(new Date(ms)));
+const familyOf = (n) => (T.travellers.find((p) => p.name === n) || {}).family;
+const FAMILIES = () => [...new Set(T.travellers.map((p) => p.family))];
+const plural = (f) => `${f}s`;
+
+function syncLine() {
+  const s = S.status();
+  const w = S.waiting();
+  let txt = 'Shared with the whole family.';
+  if (s === 'off') txt = 'Family sharing is not switched on yet.';
+  else if (s === 'error') txt = 'Could not reach the family database. Let Steve know.';
+  else if (s === 'offline') txt = w ? `No internet right now. ${w} change${w > 1 ? 's' : ''} will send when you're back online.` : 'No internet right now. Showing what this phone saved last.';
+  else if (s === 'connecting') txt = w ? 'Sending…' : 'Connecting to the family…';
+  else if (w) txt = 'Sending…';
+  return `<p class="sync-line sync-${s}">${esc(txt)}</p>`;
+}
+
+function whoGate(title, color) {
+  const cur = S.me();
+  return `<div class="screen">
+    ${header(title, cur ? `This phone is set to ${esc(cur)}.` : 'First, who is using this phone?', color)}
+    <div class="section"><div class="ready-grid">${NAMES().map((n) => `<button type="button" class="ready-btn" data-me="${esc(n)}" aria-pressed="${n === cur}"><span class="tick" aria-hidden="true">${n === cur ? '✓' : ''}</span>${esc(n)}</button>`).join('')}</div>
+    <p class="sub" style="margin-top:12px;text-align:center">You only need to do this once. You can change it at the bottom of Home.</p></div>
+    <div class="end-space"></div>
+  </div>`;
+}
+const meScreen = () => whoGate('Who are you?', 'var(--ink)');
+
+/* messages */
+const seen = () => { try { return Number(localStorage.getItem('seen')) || 0; } catch { return 0; } };
+const unread = () => { const me = S.me(); const s = seen(); return S.messages().filter((m) => m.from !== me && m.at > s).length; };
+function chat() {
+  const me = S.me();
+  if (!me) return whoGate('Messages', 'var(--green)');
+  const list = S.messages().slice(-200);
+  if (list.length) { try { localStorage.setItem('seen', String(Math.max(seen(), list[list.length - 1].at))); } catch { /* ignore */ } }
+  let lastDay = '';
+  const rows = list.map((m) => {
+    const d = dayStr(m.at);
+    const sep = d !== lastDay ? `<p class="chat-day">${d}</p>` : '';
+    lastDay = d;
+    const mine = m.from === me;
+    return `${sep}<div class="bubble${mine ? ' mine' : ''}">${mine ? '' : `<b>${esc(m.from)}</b>`}<p>${esc(m.text)}</p><time>${timeStr(m.at)}</time></div>`;
+  }).join('');
+  return `<div class="screen chat-screen">
+    ${header('Messages', 'The whole family sees these.', 'var(--green)')}
+    <div class="chat-list">${rows || '<p class="empty">No messages yet. Say hello!</p>'}</div>
+    ${syncLine()}
+    <form class="chat-form" id="chatform"><textarea name="text" rows="1" placeholder="Message the family" maxlength="1000" required></textarea><button type="submit" class="send-btn">Send</button></form>
+  </div>`;
+}
+
+/* Shout: who paid and who owes who */
+const UNIT = { JPY: 1, AUD: 0.01 };
+const money = (units, cur) => cur === 'AUD' ? `A$${(units / 100).toFixed(2)}` : `¥${Math.round(units).toLocaleString('en-AU')}`;
+function netFor(list, cur) {
+  const net = Object.fromEntries(NAMES().map((n) => [n, 0]));
+  list.filter((s) => s.cur === cur).forEach((s) => {
+    const among = s.among && s.among.length ? s.among : NAMES();
+    const total = Math.round(s.amount / UNIT[cur]);
+    const share = Math.floor(total / among.length);
+    const rem = total - share * among.length;
+    among.forEach((n, i) => { net[n] = (net[n] || 0) - share - (i < rem ? 1 : 0); });
+    net[s.by] = (net[s.by] || 0) + total;
+  });
+  return net;
+}
+function settle(net) {
+  const owe = Object.entries(net).filter(([, v]) => v < 0).map(([n, v]) => [n, -v]).sort((a, b) => b[1] - a[1]);
+  const get = Object.entries(net).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const out = [];
+  let i = 0; let j = 0;
+  while (i < owe.length && j < get.length) {
+    const amt = Math.min(owe[i][1], get[j][1]);
+    if (amt > 0) out.push({ from: owe[i][0], to: get[j][0], amt });
+    owe[i][1] -= amt; get[j][1] -= amt;
+    if (!owe[i][1]) i++;
+    if (!get[j][1]) j++;
+  }
+  return out;
+}
+function shout() {
+  if (!S.me()) return whoGate('Shout', 'var(--yellow)');
+  const list = S.shouts();
+  const curs = ['JPY', 'AUD'].filter((c) => list.some((s) => s.cur === c));
+  const summary = curs.map((cur) => {
+    const net = netFor(list, cur);
+    const fam = {};
+    Object.entries(net).forEach(([n, v]) => { const f = familyOf(n); fam[f] = (fam[f] || 0) + v; });
+    const famMoves = settle(fam);
+    const people = settle(net);
+    return `<div class="card pad">
+      <p class="eyebrow">${cur === 'JPY' ? 'Japanese yen' : 'Australian dollars'}</p>
+      <p class="title" style="margin-top:4px">${famMoves.length ? famMoves.map((m) => `The ${esc(plural(m.from))} owe the ${esc(plural(m.to))} <span class="amt">${money(m.amt, cur)}</span>`).join('<br>') : 'The families are all square.'}</p>
+      ${people.length ? `<details class="owe-more"><summary>Person by person</summary><ul class="owe-list">${people.map((m) => `<li><b>${esc(m.from)}</b> pays <b>${esc(m.to)}</b><span class="amt">${money(m.amt, cur)}</span></li>`).join('')}</ul></details>` : ''}
+    </div>`;
+  }).join('');
+  const rows = list.slice().reverse().map((s) => {
+    const among = s.among && s.among.length ? s.among : NAMES();
+    const who = among.length === NAMES().length ? 'everyone' : FAMILIES().find((f) => { const fm = NAMES().filter((n) => familyOf(n) === f); return fm.length === among.length && fm.every((n) => among.includes(n)); });
+    const split = who === 'everyone' ? 'Split between everyone' : who ? `Split between the ${plural(who)}` : `Split between ${among.join(', ')}`;
+    return `<div class="card shout-row"><div class="grow"><p class="title" style="font-size:17px">${esc(s.what)}</p><p class="sub">${esc(s.by)} paid · ${dayStr(s.at)}</p><p class="sub">${esc(split)}</p></div>
+      <div class="shout-side"><span class="amt">${money(Math.round(s.amount / UNIT[s.cur]), s.cur)}</span><button type="button" class="link-btn" data-unshout="${s.id}">Remove</button></div></div>`;
+  }).join('');
+  return `<div class="screen">
+    ${header('Shout', 'Who paid, and who owes who.', '#FFC93C', true)}
+    <div class="section"><a class="btn" href="#/shoutadd" style="margin-top:0">${I.coins(28)} Add who paid</a></div>
+    <div class="section stack">${summary || '<p class="empty">Nothing added yet. When someone pays for the group, add it here and the app works out who owes who.</p>'}</div>
+    ${rows ? `<div class="section"><p class="section-title">Everything paid</p><div class="stack tight">${rows}</div></div>` : ''}
+    ${syncLine()}
+    <div class="end-space"></div>
+  </div>`;
+}
+function shoutAdd() {
+  const me = S.me();
+  if (!me) return whoGate('Shout', 'var(--yellow)');
+  return `<div class="screen">
+    ${header('Add a shout', 'Who paid, how much, and who it was for.', '#FFC93C', true)}
+    <form class="section stack" id="shoutform">
+      <div class="card pad"><label class="title" for="what">What was it?</label><input id="what" name="what" class="text-input" placeholder="Dinner at the ramen place" maxlength="80" required></div>
+      <div class="card pad"><label class="title" for="amount">How much?</label>
+        <div class="row" style="margin-top:10px"><input id="amount" name="amount" class="text-input" inputmode="decimal" placeholder="0" required style="margin:0">
+        <div class="chips" style="padding:0;flex:none"><label class="chip-radio"><input type="radio" name="cur" value="JPY" checked><span>¥ Yen</span></label><label class="chip-radio"><input type="radio" name="cur" value="AUD"><span>A$</span></label></div></div></div>
+      <div class="card pad"><p class="title">Who paid?</p><div class="chips" style="padding:10px 0 0">${NAMES().map((n) => `<label class="chip-radio"><input type="radio" name="by" value="${esc(n)}"${n === me ? ' checked' : ''}><span>${esc(n)}</span></label>`).join('')}</div></div>
+      <div class="card pad"><p class="title">Who was it for?</p>
+        <div class="chips" style="padding:10px 0 0"><button type="button" class="chip" data-preset="all">Everyone</button>${FAMILIES().map((f) => `<button type="button" class="chip" data-preset="${esc(f)}">The ${esc(plural(f))}</button>`).join('')}</div>
+        <div class="chips" style="padding:10px 0 0">${NAMES().map((n) => `<label class="chip-radio"><input type="checkbox" name="among" value="${esc(n)}" checked><span>${esc(n)}</span></label>`).join('')}</div>
+        <p class="sub" style="margin-top:8px">It is split evenly between the people ticked.</p></div>
+      <p class="err-inline" id="shouterr" role="alert"></p>
+      <button class="btn" type="submit">Save</button>
+    </form>
+    <div class="end-space"></div>
+  </div>`;
+}
+
+/* photo diary */
+function diary() {
+  if (!S.me()) return whoGate('Photo diary', 'var(--pink)');
+  const list = S.photos().slice().reverse();
+  const days = [];
+  list.forEach((p) => { const d = p.date || iso(new Date(p.at)); let g = days.find((x) => x.d === d); if (!g) days.push(g = { d, items: [] }); g.items.push(p); });
+  return `<div class="screen">
+    ${header('Photo diary', 'Our best photos, day by day. Everyone sees them.', 'var(--pink)')}
+    <div class="section"><label class="btn" style="margin-top:0">${I.camera(28)} Add a photo<input type="file" accept="image/*" data-diary hidden></label></div>
+    ${days.map((g) => `<div class="section"><p class="section-title">${fmt(g.d)}</p><div class="diary-grid">${g.items.map((p) => `<figure class="diary-item"><button type="button" class="diary-pic" data-full="${p.id}"><img src="${esc(p.thumb)}" alt="${esc(p.caption || 'Photo')}"></button><figcaption>${p.caption ? `${esc(p.caption)} ` : ''}<span>${esc(p.by)}</span>${p.by === S.me() ? ` <button type="button" class="link-btn" data-undiary="${p.id}">Remove</button>` : ''}</figcaption></figure>`).join('')}</div></div>`).join('') || '<p class="empty">No photos yet. Add the first one!</p>'}
+    ${syncLine()}
+    <div class="end-space"></div>
+  </div>`;
+}
+const toDataURL = (blob) => new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
+async function diaryPrompt(file) {
+  const preview = URL.createObjectURL(file);
+  const el = document.createElement('div');
+  el.className = 'big-show sheet';
+  el.innerHTML = `<form class="sheet-card" id="diaryform"><img src="${preview}" alt=""><label class="title" for="cap">Add a caption (optional)</label><input id="cap" class="text-input" maxlength="120" placeholder="Snow monkeys!"><button class="btn" type="submit">Add to the diary</button><button class="btn ink" type="button" data-act="cancel">Cancel</button></form>`;
+  document.body.appendChild(el);
+  const close = () => { el.remove(); URL.revokeObjectURL(preview); };
+  el.querySelector('[data-act=cancel]').addEventListener('click', close);
+  el.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = el.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    const thumb = await toDataURL(await shrink(file, 360, 0.6));
+    let full = await toDataURL(await shrink(file, 1280, 0.72));
+    if (full.length > 900000) full = await toDataURL(await shrink(file, 900, 0.6));
+    const t = today();
+    await S.addDiaryPhoto({ thumb, full, caption: el.querySelector('#cap').value.trim(), date: t });
+    close();
+    render();
+  });
+}
+
+function familyTiles() {
+  const n = unread();
+  return `<div class="section"><p class="section-title">Family</p><div class="fam-tiles">
+    <a href="#/chat" style="background:#D7F2E6">${I.chat(40)}<span>Messages</span>${n ? `<b class="count-dot">${n}</b>` : ''}</a>
+    <a href="#/shout" style="background:#FFF3C4">${I.coins(40)}<span>Shout</span></a>
+    <a href="#/diary" style="background:#FFD6E4">${I.photoBook(40)}<span>Photo diary</span></a>
+  </div></div>`;
+}
+
 /* ---------- lock screen ---------- */
 function lockScreen(error) {
   const standalone = window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
@@ -701,20 +885,20 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me'] },
   { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
 ];
 // Where the floating back button goes from each screen.
 const BACK = {
-  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets']
+  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets'], shoutadd: ['#/shout', 'Shout']
 };
 
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen,
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen,
     journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
@@ -725,13 +909,34 @@ function render() {
   document.title = name === 'home' ? 'Japan 2026' : `${(app.querySelector('h1') || {}).textContent || 'Japan 2026'} · Japan 2026`;
   hydrate();
   hydrateWeather();
+  if (name === 'chat') requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
 }
 
 // One listener for every button on every screen.
 app.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act]');
+  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act],[data-me],[data-preset],[data-unshout],[data-undiary],[data-full]');
   if (!t) return;
   const act = t.dataset.act;
+  if (t.dataset.me) { S.setMe(t.dataset.me); if (location.hash === '#/me') location.hash = '#/home'; else render(); return; }
+  if (t.dataset.preset) {
+    const p = t.dataset.preset;
+    t.closest('form').querySelectorAll('input[name=among]').forEach((c) => { c.checked = p === 'all' || familyOf(c.value) === p; });
+    return;
+  }
+  if (t.dataset.unshout || t.dataset.undiary) {
+    if (!t.dataset.armed) { t.dataset.armed = '1'; t.textContent = 'Tap again to remove'; return; }
+    if (t.dataset.unshout) S.removeShout(t.dataset.unshout); else S.removeDiaryPhoto(t.dataset.undiary);
+    render();
+    return;
+  }
+  if (t.dataset.full) {
+    const img = t.querySelector('img');
+    zoom(img.src);
+    const big = await S.fullPhoto(t.dataset.full);
+    const shown = document.querySelector('.photo-zoom img');
+    if (big && shown) shown.src = big;
+    return;
+  }
   if (t.dataset.ready) { const [d, n] = t.dataset.ready.split('|'); S.toggleReady(d, n); render(); return; }
   if (act === 'edit-times') { editing = location.hash.split('/')[2]; render(); return; }
   if (act === 'cancel-edit') { editing = null; render(); return; }
@@ -755,6 +960,21 @@ app.addEventListener('submit', async (e) => {
     if (!ok) { f.querySelector('#pinerr').textContent = 'That PIN did not work. Try again.'; return; }
     S.setParent(f.querySelector('input[name=who]:checked').value);
     render();
+  } else if (f.id === 'chatform') {
+    const text = f.text.value.trim();
+    if (!text) return;
+    S.sendMessage(text);
+    render();
+  } else if (f.id === 'shoutform') {
+    const fd = new FormData(f);
+    const cur = fd.get('cur');
+    const amount = Number(String(fd.get('amount')).replace(/[^0-9.]/g, ''));
+    const among = fd.getAll('among');
+    const err = f.querySelector('#shouterr');
+    if (!(amount > 0)) { err.textContent = 'Type how much it cost.'; return; }
+    if (!among.length) { err.textContent = 'Tick at least one person it was for.'; return; }
+    S.addShout({ what: String(fd.get('what')).trim(), amount: cur === 'JPY' ? Math.round(amount) : Math.round(amount * 100) / 100, cur, by: fd.get('by'), among: among.length === NAMES().length ? [] : among });
+    location.hash = '#/shout';
   } else if (f.id === 'timeform') {
     const m = morningFor(f.dataset.date);
     const fd = new FormData(f);
@@ -765,6 +985,8 @@ app.addEventListener('submit', async (e) => {
   }
 });
 app.addEventListener('change', async (e) => {
+  const pick = e.target.closest('[data-diary]');
+  if (pick && pick.files.length) { const file = pick.files[0]; pick.value = ''; diaryPrompt(file); return; }
   const input = e.target.closest('[data-add]');
   if (!input || !input.files.length) return;
   for (const f of input.files) await addPhoto(input.dataset.add, await shrink(f));
@@ -780,9 +1002,23 @@ function flash(el, text) {
   setTimeout(() => t.remove(), 1600);
 }
 
-function start() {
+// Re-draw the screen when the family changes something, unless someone is typing.
+const QUIET = ['shoutadd', 'parent'];
+let redrawLater = false;
+const typing = () => { const a = document.activeElement; return !!(a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'radio'); };
+function redraw() {
+  const name = (location.hash || '#/home').split('/')[1] || 'home';
+  if (editing || QUIET.includes(name) || document.querySelector('.sheet') || typing()) { redrawLater = true; return; }
+  redrawLater = false;
+  render();
+}
+app.addEventListener('focusout', () => { if (redrawLater) setTimeout(redraw, 400); });
+
+async function start() {
   if (!started) {
-    window.addEventListener('hashchange', () => { editing = null; render(); window.scrollTo(0, 0); });
+    S.onChange(redraw);
+    await S.start(T);
+    window.addEventListener('hashchange', () => { editing = null; render(); window.scrollTo(0, 0); S.sync(); });
     started = true;
   }
   render();

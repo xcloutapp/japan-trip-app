@@ -110,11 +110,13 @@ function home() {
   return `<div class="screen">
     <header class="hero">
       <div class="sun"></div>
+      <a class="hero-gear" href="#/settings" aria-label="Settings">${I.gear(26)}</a>
       <p class="who">${esc(T.families)}</p>
       <h1>${esc(T.title)}</h1>
       ${heroBottom}
     </header>
     ${nextCard}
+    <div class="section" style="padding-top:14px"><a class="up-btn" href="#/next"><span class="big-emoji">⏭️</span><span class="grow"><b>Coming up</b><small>Everything in the next 24 hours</small></span>${I.chevron()}</a></div>
     ${homeMornings(t)}
     ${todayBlock}
     <div class="tiles">
@@ -127,10 +129,6 @@ function home() {
     </div>
     ${familyTiles()}
     <div class="section">
-      <a class="row section-link" href="#/weather"><span class="section-title grow" style="margin:0">${during ? 'Weather today and tomorrow' : 'Weather in Japan'}</span><span class="more">All days ${I.chevron(16)}</span></a>
-      <div class="stack tight" data-weather="next" style="margin-top:10px"><p class="sub">Loading the weather…</p></div>
-    </div>
-    <div class="section">
       <p class="section-title">Find nearby</p>
       <div class="nearby">
         <a href="https://maps.apple.com/?q=7-Eleven" target="_blank" rel="noopener"><span class="seven">7</span>7-Eleven</a>
@@ -140,6 +138,10 @@ function home() {
       </div>
       <p class="sub" style="margin-top:6px">Opens Apple Maps near where you are. 7-Eleven ATMs take Australian cards.</p>
     </div>
+    <div class="section">
+      <a class="row section-link" href="#/weather"><span class="section-title grow" style="margin:0">${during ? 'Weather today and tomorrow' : 'Weather in Japan'}</span><span class="more">All days ${I.chevron(16)}</span></a>
+      <div class="stack tight" data-weather="next" style="margin-top:10px"><p class="sub">Loading the weather…</p></div>
+    </div>
     ${todo.length ? `<div class="section">
       <p class="section-title">Still to book</p>
       <a class="card card-link" href="#/tickets">
@@ -147,7 +149,7 @@ function home() {
         <span class="grow" style="font-size:15px">${esc(summariseTodo(todo))}</span>
         ${I.chevron()}
       </a></div>` : ''}
-    <div class="section"><div class="link-row" style="justify-content:center;margin:0"><a href="#/mornings">${I.clock(20)} Morning plans</a><a href="#/parent">${I.lock(18)} ${S.parent() ? `Parent mode (${esc(S.parent())})` : 'Parent mode'}</a><a href="#/me">${S.me() ? `This phone: ${esc(S.me())}` : 'Who are you?'}</a></div></div>
+    <div class="section"><div class="link-row" style="justify-content:center;margin:0"><a href="#/mornings">${I.clock(20)} Morning plans</a><a href="#/parent">${I.lock(18)} ${S.parent() ? `Parent mode (${esc(S.parent())})` : 'Parent mode'}</a><a href="#/settings">${I.gear(18)} Settings</a></div></div>
     <p class="small-print" style="margin-top:12px">Trip details updated ${fmt(T.updated)}</p>
     <div class="end-space"></div>
   </div>`;
@@ -189,23 +191,43 @@ const FILTERS = [
 ];
 let tripFilter = 'all';
 
+// The whole trip as one slim row per day. Tap a day to open it, or open and close them all.
+let openDays = null;
+const DAY_COLOUR = { travel: 'var(--blue)', park: 'var(--purple)', '': 'var(--green)' };
 function trip() {
-  const f = FILTERS.find((x) => x.id === tripFilter) || FILTERS[0];
-  const list = T.journeys.filter((j) => !f.kinds || f.kinds.includes(j.kind));
   const t = today();
-  let lastDate = '';
-  const cards = list.map((j) => {
-    const label = j.date !== lastDate ? `<p class="day-label">${fmt(j.date)}${j.date === t ? '<span class="today-pill">Today</span>' : ''}</p>` : '';
-    lastDate = j.date;
-    return label + journeyCard(j);
+  const days = T.days;
+  if (!openDays) openDays = new Set([(days.find((d) => d.date >= t) || days[0]).date]);
+  const name = (d) => (d && T.weatherPlaces[d.place] ? T.weatherPlaces[d.place].name : '');
+  const rows = days.map((d, i) => {
+    const prev = days[i - 1];
+    const js = T.journeys.filter((j) => j.date === d.date);
+    const pl = T.places.filter((p) => p.date === d.date);
+    const h = hotelFor(d.date);
+    const where = i === 0 ? `Sydney → ${name(d)}` : prev && prev.place !== d.place ? `${name(prev)} → ${name(d)}` : name(d);
+    const kinds = [...new Set(js.map((j) => j.kind))];
+    const open = openDays.has(d.date);
+    const what = js.length ? js.map((j) => j.title).join(' · ') : pl.length ? pl.map((p) => p.name).join(' · ') : 'Free day';
+    const body = open ? `<div class="day-body">
+        ${morningFor(d.date) ? `<a class="mini" href="#/morning/${d.date}">${I.clock(34)}<span class="grow"><b>Morning plan</b><small>${esc(morningFor(d.date).headline)}</small></span>${I.chevron(18)}</a>` : ''}
+        ${js.map((j) => `<a class="mini" href="#/journey/${j.id}">${I.kindTile(j.kind, 40, true)}<span class="grow"><b>${esc(j.title)}</b><small>${esc(j.sub)}</small>${status(j) === 'book' ? '<span class="status st-book">To book</span>' : ''}</span>${I.chevron(18)}</a>`).join('')}
+        ${pl.map((p) => `<a class="mini" href="#/places"><img src="${p.img}" alt="" loading="lazy"><span class="grow"><b>${esc(p.name)}</b><small>${esc(p.note)}</small></span>${I.chevron(18)}</a>`).join('')}
+        ${h ? `<a class="mini" href="#/hotel/${h.id}">${I.hotel(34)}<span class="grow"><b>Sleep at ${esc(h.short)}</b><small>${esc(h.city)}</small></span>${I.chevron(18)}</a>` : '<p class="mini-note">Home sweet home.</p>'}
+      </div>` : '';
+    return `<div class="day${open ? ' open' : ''}${d.date === t ? ' is-today' : ''}">
+      <button type="button" class="day-head" data-day="${d.date}" aria-expanded="${open}">
+        <span class="day-date" style="background:${DAY_COLOUR[d.type] || DAY_COLOUR['']}"><small>${DAYS[parse(d.date).getDay()]}</small><b>${dayNum(d.date)}</b><small>Dec</small></span>
+        <span class="grow day-where"><b>${esc(where)}</b><small>${d.date === t ? '<span class="today-pill">Today</span> ' : ''}${esc(what)}</small></span>
+        <span class="day-kinds">${kinds.slice(0, 3).map((k) => I.kindTile(k, 28, true)).join('')}</span>
+        <span class="day-chev">${I.chevron(18)}</span>
+      </button>${body}
+    </div>`;
   }).join('');
   const todo = T.journeys.filter((j) => status(j) === 'book').length;
   return `<div class="screen">
-    ${header('Getting around', `${T.journeys.length} journeys · ${todo} still to book`, 'var(--blue)')}
-    <div class="chips" role="group" aria-label="Show">
-      ${FILTERS.map((x) => `<button type="button" class="chip" data-filter="${x.id}" aria-pressed="${x.id === f.id}">${x.label}</button>`).join('')}
-    </div>
-    <div class="section stack" style="padding-top:6px">${cards || '<p class="empty">Nothing here.</p>'}</div>
+    ${header('The whole trip', `${days.length} days · ${todo} journeys still to book`, 'var(--blue)')}
+    <div class="day-tools"><button type="button" class="chip" data-act="open-all">Expand all</button><button type="button" class="chip" data-act="close-all">Collapse all</button></div>
+    <div class="days">${rows}</div>
     <div class="end-space"></div>
   </div>`;
 }
@@ -231,7 +253,8 @@ function journey(id) {
 
   const steps = j.steps.map((s, i) => {
     const b = s.booking && bookings.find((x) => x.id === s.booking);
-    return `<div class="step">
+    const homeBar = s.back && !(j.steps[i - 1] || {}).back ? `<div class="home-bar">${I.hotel(28)} Getting back to the hotel</div>` : '';
+    return `${homeBar}<div class="step">
       <div class="rail">${I.kindTile(s.kind, 60, true)}${i < j.steps.length - 1 ? '<div class="line"></div>' : ''}</div>
       <div class="body">
         <p class="time">${esc(s.time)}</p>
@@ -902,6 +925,226 @@ function dinner(arg) {
   </div>`;
 }
 
+/* ---------- settings ---------- */
+function settings() {
+  const me = S.me();
+  const p = S.pushPrefs();
+  const sw = (key, label, sub) => `<label class="switch-row"><span class="grow"><b>${label}</b><small>${sub}</small></span><input type="checkbox" class="switch" data-pref="${key}"${p[key] ? ' checked' : ''}></label>`;
+  return `<div class="screen">
+    ${header('Settings', 'For this phone, plus the family checklists.', 'var(--ink)')}
+    <div class="section"><p class="section-title">Notifications</p>
+      ${pushOn() ? `<div class="card">${sw('remind', 'Morning reminders', '10 minutes before each morning plan time')}${sw('chat', 'Message alerts', 'When someone sends a family message')}</div>` : remindCard().replace('class="note', 'class="note flush')}
+    </div>
+    <div class="section"><p class="section-title">Family</p><div class="stack tight">
+      <a class="card card-link" href="#/apps">${I.phone(36)}<span class="grow"><span class="title" style="display:block">Travel apps</span><span class="sub" style="display:block">The apps we need, and who has them</span></span>${I.chevron()}</a>
+      <a class="card card-link" href="#/passports">${I.passport(36)}<span class="grow"><span class="title" style="display:block">Passports</span><span class="sub" style="display:block">Locked. Only parents can see everyone's.</span></span>${I.chevron()}</a>
+    </div></div>
+    <div class="section"><p class="section-title">This phone</p><div class="stack tight">
+      <a class="card card-link" href="#/me">${I.chat(36)}<span class="grow"><span class="title" style="display:block">Who are you?</span><span class="sub" style="display:block">${me ? `Set to ${esc(me)}` : 'Not set yet'}</span></span>${I.chevron()}</a>
+      <a class="card card-link" href="#/parent">${I.lock(36)}<span class="grow"><span class="title" style="display:block">Parent mode</span><span class="sub" style="display:block">${S.parent() ? `On (${esc(S.parent())})` : 'Off'}</span></span>${I.chevron()}</a>
+    </div></div>
+    ${syncLine()}
+    <div class="end-space"></div>
+  </div>`;
+}
+
+/* ---------- travel apps checklist ---------- */
+const APPS = [
+  { id: 'suica', name: 'Suica in Apple Wallet', who: 'all', why: 'Tap on trains and buses, and pay at 7-Eleven. In the Wallet app tap +, then Transit Card, then Suica.', search: '' },
+  { id: 'vjw', name: 'Visit Japan Web', who: 'parents', why: 'Immigration and customs QR codes for arriving in Japan. A parent can add the whole family.', link: 'https://www.vjw.digital.go.jp/' },
+  { id: 'cathay', name: 'Cathay Pacific', who: 'all', why: 'Check in and boarding passes for our flights.', search: 'Cathay Pacific' },
+  { id: 'gmaps', name: 'Google Maps', who: 'all', why: 'Best for train times and walking directions in Japan.', search: 'Google Maps' },
+  { id: 'translate', name: 'Google Translate', who: 'all', why: 'Point the camera at a sign or menu to read it in English.', search: 'Google Translate' },
+  { id: 'disney', name: 'Tokyo Disney Resort', who: 'all', why: 'Park tickets, wait times and ride passes at Disneyland and DisneySea.', search: 'Tokyo Disney Resort' },
+  { id: 'usj', name: 'Universal Studios Japan', who: 'parents', why: 'Book Super Nintendo World entry as soon as we are inside the park.', search: 'Universal Studios Japan' },
+  { id: 'klook', name: 'Klook', who: 'parents', why: 'Where our Universal and Disney tickets were bought.', search: 'Klook' },
+  { id: 'smartex', name: 'SmartEX', who: 'parents', why: 'Our bullet train bookings and seats.', search: 'SmartEX' }
+];
+const appLink = (a) => a.link || (a.search ? `https://apps.apple.com/au/search?term=${encodeURIComponent(a.search)}` : '');
+function appsScreen() {
+  const me = S.me();
+  if (!me) return whoGate('Travel apps', 'var(--ink)');
+  const got = S.apps();
+  const has = (a, n) => !!((got[a.id] || {})[n]);
+  const isParent = !!S.parent();
+  const needs = (a, n) => a.who === 'all' || T.parents.includes(n);
+  const mine = APPS.filter((a) => needs(a, me));
+  const grid = isParent ? `<div class="section"><p class="section-title">Who has what</p>
+    <div class="card app-grid-wrap"><table class="app-grid"><thead><tr><th></th>${NAMES().map((n) => `<th><span>${esc(n)}</span></th>`).join('')}</tr></thead>
+    <tbody>${APPS.map((a) => `<tr><th>${esc(a.name)}</th>${NAMES().map((n) => needs(a, n) ? `<td><button type="button" class="cell${has(a, n) ? ' yes' : ''}" data-app="${a.id}|${esc(n)}" aria-label="${esc(n)} ${esc(a.name)}">${has(a, n) ? '✓' : ''}</button></td>` : '<td class="na">·</td>').join('')}</tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin-top:8px">Tap a box to tick it for someone. A dot means they don't need it.</p></div>` : '';
+  return `<div class="screen">
+    ${header('Travel apps', 'Get these before we fly, then tick them off.', 'var(--ink)')}
+    <div class="section"><div class="stack tight">${mine.map((a) => `<div class="card pad app-row">
+      <div class="row" style="align-items:flex-start"><div class="grow"><p class="title">${esc(a.name)}</p><p class="sub">${esc(a.why)}</p></div>
+      <button type="button" class="vote-btn" data-app="${a.id}|${esc(me)}" aria-pressed="${has(a, me)}">${has(a, me) ? '✓ Got it' : 'Got it?'}</button></div>
+      ${appLink(a) ? `<a class="map-btn" style="margin-top:10px" href="${appLink(a)}" target="_blank" rel="noopener">${a.link ? 'Open the website' : 'Find it in the App Store'}</a>` : ''}
+    </div>`).join('')}</div></div>
+    ${grid}
+    ${syncLine()}
+    <div class="end-space"></div>
+  </div>`;
+}
+
+/* ---------- passports ----------
+   Each passport is scrambled on the phone with the family's passport lock before it is saved.
+   Anyone can lock their own passport in; only the parent password can open them all. */
+const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+let vaultKey = null; // the opened private key, while the app is open
+async function passKey(password, salt) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function lockFor(pub, obj) {
+  const k = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const d = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, new TextEncoder().encode(JSON.stringify(obj)));
+  const pk = await crypto.subtle.importKey('spki', unb64(pub), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+  const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pk, await crypto.subtle.exportKey('raw', k));
+  return JSON.stringify({ k: b64(wrapped), iv: b64(iv), d: b64(d) });
+}
+async function unlockBox(box) {
+  const b = JSON.parse(box);
+  const raw = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, vaultKey, unb64(b.k));
+  const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(b.iv) }, k, unb64(b.d))));
+}
+async function openVault(password, lock) {
+  const k = await passKey(password, unb64(lock.salt));
+  const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(lock.iv) }, k, unb64(lock.priv));
+  vaultKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
+}
+async function makeVault(password) {
+  const pair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const k = await passKey(password, salt);
+  const priv = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, await crypto.subtle.exportKey('pkcs8', pair.privateKey));
+  const lock = { pub: b64(await crypto.subtle.exportKey('spki', pair.publicKey)), priv: b64(priv), salt: b64(salt), iv: b64(iv) };
+  await S.vaultPut('lock', lock);
+  vaultKey = pair.privateKey;
+  return lock;
+}
+
+const PP_FIELDS = [['given', 'Given names'], ['surname', 'Surname'], ['number', 'Passport number'], ['nationality', 'Nationality'], ['dob', 'Date of birth'], ['issued', 'Date of issue'], ['expires', 'Date of expiry']];
+const myPassport = () => { try { return JSON.parse(localStorage.getItem('myPassport')) || null; } catch { return null; } };
+let ppState = { lock: undefined, people: {}, editing: null, error: '' };
+
+function passports() {
+  const me = S.me();
+  if (!me) return whoGate('Passports', 'var(--ink)');
+  const isParent = !!S.parent();
+  const lock = ppState.lock;
+  let body;
+  if (lock === undefined) body = '<p class="empty">Opening…</p>';
+  else if (!lock) {
+    body = isParent
+      ? `<form class="section stack" id="ppsetup"><div class="card pad"><p class="title">Choose the passport password</p>
+          <p class="sub" style="margin-top:6px">Steve, Katrina and Kim will all use it. At least 8 letters or numbers. Don't write it in the app or in messages: tell the other parents in person.</p>
+          <input class="text-input" type="password" name="p1" minlength="8" autocomplete="new-password" placeholder="Password" required>
+          <input class="text-input" type="password" name="p2" minlength="8" autocomplete="new-password" placeholder="Type it again" required></div>
+          <p class="err-inline">${esc(ppState.error)}</p>
+          <button class="btn" type="submit">${I.lock(20)} Lock passports with this password</button></form>`
+      : '<div class="note note-yellow"><div><p class="title">Not ready yet</p><p>A parent needs to set up the passport lock first.</p></div></div>';
+  } else if (ppState.editing) {
+    const who = ppState.editing;
+    const cur = (who === me && myPassport()) || ppState.people[who] || {};
+    body = `<form class="section stack" id="ppform" data-who="${esc(who)}"><div class="card pad">
+        <p class="title">${esc(who)}'s passport</p><p class="sub" style="margin-top:4px">Type it exactly as it's printed on the photo page.</p>
+        ${PP_FIELDS.map(([k, l]) => `<label class="field"><span>${l}</span><input class="text-input" name="${k}" value="${esc(cur[k] || '')}" ${k === 'dob' || k === 'issued' || k === 'expires' ? 'placeholder="e.g. 14 MAR 2031"' : ''} autocomplete="off" autocapitalize="characters" required></label>`).join('')}
+      </div>
+      <button class="btn" type="submit">${I.lock(20)} Lock it in</button>
+      <button class="btn ink" type="button" data-act="pp-cancel">Cancel</button></form>`;
+  } else {
+    const mine = myPassport();
+    const saved = new Set(Object.keys(ppState.people).concat(ppState.savedNames || []));
+    const card = (n, p) => `<div class="card pad pp-card"><div class="row"><p class="title grow">${esc(n)}</p>${isParent || n === me ? `<button type="button" class="link-btn" data-pp-edit="${esc(n)}" style="color:var(--blue)">${p || (ppState.savedNames || []).includes(n) ? 'Change' : 'Add'}</button>` : ''}</div>
+      ${p ? `<dl class="pp">${PP_FIELDS.map(([k, l]) => `<div><dt>${l}</dt><dd${k === 'number' ? ` data-copy="${esc(p[k])}"` : ''}>${esc(p[k])}</dd></div>`).join('')}</dl>` : `<p class="sub">${saved.has(n) ? 'Saved and locked.' : 'Not added yet.'}</p>`}
+    </div>`;
+    body = isParent && !vaultKey
+      ? `<form class="section stack" id="ppopen"><div class="card pad"><p class="title">Open everyone's passports</p>
+          <input class="text-input" type="password" name="p" autocomplete="current-password" placeholder="Passport password" required></div>
+          <p class="err-inline">${esc(ppState.error)}</p>
+          <button class="btn" type="submit">${I.lock(20)} Open</button></form>
+          <div class="section">${card(me, mine)}</div>`
+      : isParent
+        ? `<div class="section stack tight">${NAMES().map((n) => card(n, ppState.people[n])).join('')}</div>`
+        : `<div class="section">${card(me, mine)}${mine ? '' : `<button class="btn" type="button" data-pp-edit="${esc(me)}">Add my passport</button>`}</div>`;
+  }
+  return `<div class="screen">
+    ${header('Passports', 'Scrambled before they leave the phone. Only the parent password opens them all.', 'var(--ink)')}
+    ${body}
+    <p class="small-print">Your own passport also stays on your phone, so it works with no internet. Tap a passport number to copy it.</p>
+    <div class="end-space"></div>
+  </div>`;
+}
+async function loadPassports() {
+  if (!location.hash.startsWith('#/passports')) return;
+  const lock = await S.vaultGet('lock');
+  const people = {};
+  const savedNames = [];
+  for (const n of NAMES()) {
+    const d = await S.vaultGet(`pp-${n}`);
+    if (d && d.box) { savedNames.push(n); if (vaultKey) { try { people[n] = await unlockBox(d.box); } catch { /* wrong key */ } } }
+  }
+  const changed = JSON.stringify([lock, people, savedNames]) !== JSON.stringify([ppState.lock, ppState.people, ppState.savedNames]);
+  ppState = { ...ppState, lock: lock || null, people, savedNames };
+  if (changed && location.hash.startsWith('#/passports')) render();
+}
+
+/* ---------- coming up: everything in the next 24 hours ---------- */
+const clockOf = (s, fallback) => {
+  const m = /(\d{1,2}):(\d{2})\s*(am|pm)/i.exec(s || '');
+  if (m) { let h = Number(m[1]) % 12; if (m[3].toLowerCase() === 'pm') h += 12; return h * 60 + Number(m[2]); }
+  if (/morning/i.test(s || '')) return 9 * 60;
+  if (/afternoon/i.test(s || '')) return 14 * 60;
+  return fallback;
+};
+const showClock = (mins) => `${Math.floor(mins / 60) % 12 || 12}:${String(mins % 60).padStart(2, '0')}${mins < 720 ? 'am' : 'pm'}`;
+function itemsFor(date) {
+  const out = [];
+  const add = (mins, icon, title, sub, href) => out.push({ date, mins, icon, title, sub, href });
+  const m = morningFor(date);
+  if (m) S.timesFor(m).forEach((t) => add(clockOf(t.time, 360), TIME_ICON[t.kind] ? TIME_ICON[t.kind]() : I.clock(36), t.title, t.detail, `#/morning/${date}`));
+  T.journeys.filter((j) => j.date === date).forEach((j) => {
+    const first = j.steps.map((s) => clockOf(s.time, null)).find((x) => x !== null);
+    add(first ?? 9 * 60, I.kindTile(j.kind, 40, true), j.title, j.sub, `#/journey/${j.id}`);
+  });
+  T.hotels.filter((h) => h.checkOut === date).forEach((h) => add(clockOf(h.checkOutTime, 660), I.hotel(36), `Check out of ${h.short}`, `By ${h.checkOutTime}. Check under the beds!`, `#/hotel/${h.id}`));
+  T.hotels.filter((h) => h.checkIn === date).forEach((h) => add(clockOf(h.checkInTime, 900), I.hotel(36), `Check in at ${h.short}`, `Check-in ${h.checkInTime}`, `#/hotel/${h.id}`));
+  ((T.bags || {}).sends || []).filter((s) => s.date === date && s.status === 'planned').forEach((s) => add(clockOf(s.readyBy, 540), I.truck(36), 'Big suitcases go to the front desk', s.readyWhere, `#/send/${s.id}`));
+  T.places.filter((p) => p.date === date).forEach((p) => add(-1, `<img class="ci-img" src="${p.img}" alt="">`, p.name, p.note, '#/places'));
+  if (hotelFor(date) && (T.dinners || {})[hotelFor(date).id]) {
+    const v = S.votes(date);
+    const picks = T.dinners[hotelFor(date).id];
+    const count = (id) => Object.values(v).filter((x) => x && x.place === id).length;
+    const best = picks.slice().sort((a, b) => count(b.id) - count(a.id))[0];
+    add(18 * 60 + 30, '<span class="big-emoji">🍜</span>', 'Dinner', best && count(best.id) ? `${best.name} is winning the vote` : 'Vote for where to eat', `#/dinner/${date}`);
+  }
+  return out;
+}
+function comingUp() {
+  const now = new Date();
+  const t = today();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const tom = iso(new Date(parse(t).getTime() + 86400000));
+  const list = [...itemsFor(t).filter((x) => x.mins < 0 || x.mins >= nowMins - 30), ...itemsFor(tom).filter((x) => x.mins < 0 || x.mins <= nowMins)];
+  const group = (d, label) => {
+    const its = list.filter((x) => x.date === d).sort((a, b) => a.mins - b.mins);
+    if (!its.length) return '';
+    return `<div class="section"><p class="day-label up-day">${label} · ${fmt(d)}</p>
+      <div class="up-list">${its.map((x) => `<a class="up-item" href="${x.href}"><span class="up-time">${x.mins < 0 ? 'All day' : showClock(x.mins)}</span><span class="up-ico">${x.icon}</span><span class="grow"><b>${esc(x.title)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</span></a>`).join('')}</div></div>`;
+  };
+  const body = group(t, 'Today') + group(tom, 'Tomorrow');
+  return `<div class="screen">
+    ${header('Coming up', 'Everything in the next 24 hours. Check it the night before!', 'var(--red)')}
+    <div class="section"><div class="stack tight" data-weather="next"><p class="sub">Loading the weather…</p></div></div>
+    ${body || '<p class="empty">Nothing planned in the next 24 hours. Enjoy!</p>'}
+    <div class="end-space"></div>
+  </div>`;
+}
+
 /* phone notifications: morning reminders and new messages */
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const standalone = () => window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
@@ -975,20 +1218,20 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner', 'settings', 'apps', 'passports', 'next'] },
   { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
 ];
 // Where the floating back button goes from each screen.
 const BACK = {
-  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets'], shoutadd: ['#/shout', 'Shout']
+  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets'], shoutadd: ['#/shout', 'Shout'], apps: ['#/settings', 'Settings'], passports: ['#/settings', 'Settings']
 };
 
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg),
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg), settings, apps: appsScreen, passports, next: comingUp,
     journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
@@ -999,15 +1242,22 @@ function render() {
   document.title = name === 'home' ? 'Japan 2026' : `${(app.querySelector('h1') || {}).textContent || 'Japan 2026'} · Japan 2026`;
   hydrate();
   hydrateWeather();
+  if (name === 'passports') loadPassports();
   if (name === 'chat') requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
 }
 
 // One listener for every button on every screen.
 app.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act],[data-me],[data-preset],[data-unshout],[data-undiary],[data-full],[data-vote]');
+  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act],[data-me],[data-preset],[data-unshout],[data-undiary],[data-full],[data-vote],[data-day],[data-app],[data-pp-edit]');
   if (!t) return;
   const act = t.dataset.act;
   if (t.dataset.me) { S.setMe(t.dataset.me); if (location.hash === '#/me') location.hash = '#/home'; else render(); return; }
+  if (t.dataset.app) { const [a, n] = t.dataset.app.split('|'); S.toggleApp(a, n); render(); return; }
+  if (t.dataset.ppEdit) { ppState.editing = t.dataset.ppEdit; render(); window.scrollTo(0, 0); return; }
+  if (act === 'pp-cancel') { ppState.editing = null; render(); return; }
+  if (t.dataset.day) { const d = t.dataset.day; if (openDays.has(d)) openDays.delete(d); else openDays.add(d); render(); return; }
+  if (act === 'open-all') { openDays = new Set(T.days.map((d) => d.date)); render(); return; }
+  if (act === 'close-all') { openDays = new Set(); render(); return; }
   if (t.dataset.vote) { const [d, kind, val] = t.dataset.vote.split('|'); S.vote(d, S.me(), kind, val); render(); return; }
   if (t.dataset.preset) {
     const p = t.dataset.preset;
@@ -1052,6 +1302,27 @@ app.addEventListener('submit', async (e) => {
     if (!ok) { f.querySelector('#pinerr').textContent = 'That PIN did not work. Try again.'; return; }
     S.setParent(f.querySelector('input[name=who]:checked').value);
     render();
+  } else if (f.id === 'ppsetup') {
+    if (f.p1.value !== f.p2.value) { ppState.error = 'The two passwords are different. Try again.'; render(); return; }
+    f.querySelector('button').disabled = true;
+    ppState.lock = await makeVault(f.p1.value);
+    ppState.error = '';
+    render();
+  } else if (f.id === 'ppopen') {
+    f.querySelector('button').textContent = 'Opening…';
+    try { await openVault(f.p.value, ppState.lock); ppState.error = ''; } catch { ppState.error = 'That password did not work.'; }
+    render();
+    loadPassports();
+  } else if (f.id === 'ppform') {
+    const who = f.dataset.who;
+    const data = Object.fromEntries(PP_FIELDS.map(([k]) => [k, String(new FormData(f).get(k) || '').trim().toUpperCase()]));
+    f.querySelector('button[type=submit]').disabled = true;
+    await S.vaultPut(`pp-${who}`, { box: await lockFor(ppState.lock.pub, data) });
+    if (who === S.me()) { try { localStorage.setItem('myPassport', JSON.stringify(data)); } catch { /* ignore */ } }
+    if (vaultKey) ppState.people[who] = data;
+    ppState.savedNames = [...new Set([...(ppState.savedNames || []), who])];
+    ppState.editing = null;
+    render();
   } else if (f.id === 'chatform') {
     const text = f.text.value.trim();
     if (!text) return;
@@ -1077,6 +1348,7 @@ app.addEventListener('submit', async (e) => {
   }
 });
 app.addEventListener('change', async (e) => {
+  if (e.target.dataset.pref) { S.setPushPref(e.target.dataset.pref, e.target.checked); return; }
   const pick = e.target.closest('[data-diary]');
   if (pick && pick.files.length) { const file = pick.files[0]; pick.value = ''; diaryPrompt(file); return; }
   const input = e.target.closest('[data-add]');
@@ -1095,7 +1367,7 @@ function flash(el, text) {
 }
 
 // Re-draw the screen when the family changes something, unless someone is typing.
-const QUIET = ['shoutadd', 'parent'];
+const QUIET = ['shoutadd', 'parent', 'passports'];
 let redrawLater = false;
 const typing = () => { const a = document.activeElement; return !!(a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'radio'); };
 function redraw() {

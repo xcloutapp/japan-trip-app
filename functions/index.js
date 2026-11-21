@@ -34,12 +34,13 @@ function toMs(date, time, offset) {
   return Date.UTC(y, mo - 1, d, h, Number(t[2])) - offset * 3600 * 1000;
 }
 
-async function sendAll(trip, note, skipWho) {
+async function sendAll(trip, note, skipWho, kind) {
   const subs = await trip.collection('push').get();
   const body = JSON.stringify(note);
   await Promise.all(subs.docs.map(async (doc) => {
     const p = doc.data();
     if (skipWho && p.who === skipWho) return;
+    if (kind && p[kind] === false) return; // this phone switched that kind of alert off
     try {
       await webpush.sendNotification(JSON.parse(p.sub), body, { TTL: 900, urgency: 'high' });
     } catch (e) {
@@ -72,7 +73,7 @@ exports.reminders = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Asia/To
       }
     }
     for (const d of due) {
-      await sendAll(trip, { title: `${d.t.time}: ${d.t.title}`, body: d.t.detail ? `In 10 minutes. ${d.t.detail}` : 'In 10 minutes.', url: `#/morning/${d.date}`, tag: d.key });
+      await sendAll(trip, { title: `${d.t.time}: ${d.t.title}`, body: d.t.detail ? `In 10 minutes. ${d.t.detail}` : 'In 10 minutes.', url: `#/morning/${d.date}`, tag: d.key }, null, 'remind');
       await sentRef.set({ [d.key]: now }, { merge: true });
     }
   }
@@ -84,5 +85,5 @@ exports.newMessage = onDocumentCreated('trips/{trip}/messages/{id}', async (even
   await setup();
   const trip = db.collection('trips').doc(event.params.trip);
   const text = m.text.length > 140 ? `${m.text.slice(0, 137)}…` : m.text;
-  await sendAll(trip, { title: `${m.from || 'Family'} says`, body: text, url: '#/chat', tag: 'chat' }, m.from);
+  await sendAll(trip, { title: `${m.from || 'Family'} says`, body: text, url: '#/chat', tag: 'chat' }, m.from, 'chat');
 });

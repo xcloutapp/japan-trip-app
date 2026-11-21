@@ -399,6 +399,10 @@ function hotels() {
   </div>`;
 }
 
+// Opens the phone's Mail app with the subject and booking details already typed in.
+const mailto = (to, subject, body) => `mailto:${to || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+const KLOOK_BOOKINGS = 'https://www.klook.com/en-AU/bookings/';
+
 function hotelPage(id) {
   const h = T.hotels.find((x) => x.id === id);
   if (!h) return notFound();
@@ -426,6 +430,7 @@ function hotelPage(id) {
       <button type="button" class="btn ink" data-big="hotel:${h.id}">Show the taxi driver</button>
       <div class="link-row">
         ${h.phone ? `<a href="tel:${h.phone.replace(/[^+\d]/g, '')}">Call ${esc(h.phone)}</a>` : ''}
+        <a href="${mailto(h.email, `Our booking: ${fmt(h.checkIn)} to ${fmt(h.checkOut)}, 8 guests`, `Hello ${h.name},\n\nWe have a booking with you from ${fmt(h.checkIn)} to ${fmt(h.checkOut)} for 8 guests (${h.rooms}). ${h.bookedVia ? `Booked on ${h.bookedVia}.` : ''}\n\n\n\nThank you,\n${S.me() || ''}`)}">Email the hotel</a>
         <a href="https://www.google.com/search?q=${encodeURIComponent(h.name + ' official website')}" target="_blank" rel="noopener">Hotel website ${I.external(14)}</a>
       </div>
     </div></div>
@@ -533,6 +538,10 @@ function ticketPage(id) {
     ${(k.refs || []).length ? `<div class="section"><div class="stack tight">${k.refs.map((r) => `<button type="button" class="card ref-card" data-copy="${esc(r.value)}"><span class="eyebrow">${esc(r.label)}</span><span class="ref-big">${esc(r.value)}</span><span class="copy-hint">Tap to copy</span></button>`).join('')}</div></div>` : ''}
     ${(k.people || []).length ? `<div class="section"><p class="section-title">${esc(k.people[0].label)} for each person</p><div class="card phrase-list">${k.people.map((p) => `<button type="button" class="phrase" data-copy="${esc(p.value)}"><span class="grow en">${esc(p.name)}</span><span class="mono">${esc(p.value)}</span></button>`).join('')}</div></div>` : ''}
     ${files.length ? `<div class="section"><p class="section-title">Tickets and QR codes</p><div class="stack">${files.map((f) => `<figure class="card ticket-pic"><img data-file="${f.src}" alt="${esc(f.label)}"><figcaption>${esc(f.label)}</figcaption></figure>`).join('')}</div></div>` : ''}
+    <div class="section"><div class="stack tight">
+      ${k.klook ? `<a class="btn klook" href="${KLOOK_BOOKINGS}" target="_blank" rel="noopener">Open in Klook ${I.external()}</a>` : ''}
+      <a class="btn ink" href="${mailto(k.email, `${k.title}${k.refs && k.refs[0] ? ` (${k.refs[0].value})` : ''}`, `Hello,\n\nAbout our booking: ${k.title}, ${fmt(k.date)}.\n${(k.refs || []).map((r) => `${r.label}: ${r.value}`).join('\n')}\n\n\n\nThank you,\n${S.me() || ''}`)}">Email about this booking</a>
+    </div></div>
     ${(k.notes || []).length ? `<div class="section"><div class="card pad"><ul class="bullets">${k.notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
     <div class="section"><p class="section-title">On this phone</p>
       <div class="local-photos" data-photos="${k.id}"></div>

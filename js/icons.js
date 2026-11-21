@@ -62,3 +62,20 @@ export const tab = {
   bags: stroke('M6 8 H18 A1.5 1.5 0 0 1 19.5 9.5 V19 A1.5 1.5 0 0 1 18 20.5 H6 A1.5 1.5 0 0 1 4.5 19 V9.5 A1.5 1.5 0 0 1 6 8 Z M9 8 V5 H15 V8 M9.5 12 V17 M14.5 12 V17', 26, 2),
   tickets: stroke('M3 7 H21 V10 A2 2 0 0 0 21 14 V17 H3 V14 A2 2 0 0 0 3 10 Z M15 7 V17', 26, 2)
 };
+
+const SUN = '<circle cx="12" cy="12" r="5" fill="#FFC93C" stroke="#14213D" style="stroke-width:1.4"/><path d="M12 2.5V5 M12 19V21.5 M2.5 12H5 M19 12H21.5 M5.2 5.2L6.9 6.9 M17.1 17.1L18.8 18.8 M5.2 18.8L6.9 17.1 M17.1 6.9L18.8 5.2" stroke="#14213D" style="stroke-width:1.4;stroke-linecap:round"/>';
+const CLOUD = (y = 0) => `<path d="M7 ${18 + y} H17.5 A3.5 3.5 0 0 0 17.5 ${11 + y} A5 5 0 0 0 8 ${10 + y} A4 4 0 0 0 7 ${18 + y} Z" fill="#FFFFFF" stroke="#14213D" style="stroke-width:1.4;stroke-linejoin:round"/>`;
+export const weatherIcon = (kind, s = 40) => {
+  const body = {
+    sun: SUN,
+    part: `<g transform="translate(-3,-4) scale(0.8)">${SUN}</g>${CLOUD(2)}`,
+    cloud: CLOUD(0),
+    rain: `${CLOUD(-2)}<path d="M9 19 L8 22 M13 19 L12 22 M17 19 L16 22" stroke="#1E6FD9" style="stroke-width:1.8;stroke-linecap:round"/>`,
+    snow: `${CLOUD(-2)}<circle cx="9" cy="20.5" r="1.2" fill="#7FB3F0"/><circle cx="13" cy="21.5" r="1.2" fill="#7FB3F0"/><circle cx="17" cy="20.5" r="1.2" fill="#7FB3F0"/>`
+  }[kind] || CLOUD(0);
+  return svg(s, s, '0 0 24 24', body);
+};
+export const clock = (s = 40) => svg(s, s, '0 0 24 24', `<circle cx="12" cy="12" r="9" fill="#FFFFFF" stroke="${INK}" style="stroke-width:1.6"/><path d="M12 7 V12 L15 14" fill="none" stroke="${INK}" style="stroke-width:1.8;stroke-linecap:round"/>`);
+export const food = (s = 36) => svg(s, s, '0 0 24 24', `<path d="M4 12 H20 A8 8 0 0 1 4 12 Z" fill="#FFFFFF" stroke="${INK}" style="stroke-width:1.5;stroke-linejoin:round"/><path d="M8 9 Q9 6 8 4 M12 9 Q13 6 12 4 M16 9 Q17 6 16 4" fill="none" stroke="#E8473C" style="stroke-width:1.5;stroke-linecap:round"/>`);
+export const lobby = (s = 36) => svg(s, s, '0 0 24 24', `<rect x="5" y="3" width="14" height="18" rx="1.5" fill="#FFFFFF" stroke="${INK}" style="stroke-width:1.5"/><path d="M12 3 V21" stroke="${INK}" style="stroke-width:1.5"/><circle cx="10" cy="12" r="1" fill="${INK}"/><circle cx="14" cy="12" r="1" fill="${INK}"/>`);
+export const lock = (s = 22) => svg(s, s, '0 0 24 24', `<rect x="5" y="10" width="14" height="11" rx="2" fill="#FFC93C" stroke="${INK}" style="stroke-width:1.6"/><path d="M8 10 V7 A4 4 0 0 1 16 7 V10" fill="none" stroke="${INK}" style="stroke-width:1.6"/>`);

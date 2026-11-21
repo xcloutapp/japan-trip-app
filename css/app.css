@@ -256,3 +256,45 @@ p { margin: 0; }
 .add-photo { cursor: pointer; }
 a.ticket-slot { color: var(--ink); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(100px + var(--safe-bottom)); z-index: 60; background: var(--ink); color: #FFFFFF; border-radius: 16px; padding: 10px 18px; font-weight: 700; font-size: 15px; }
+
+/* ---------- morning plans ---------- */
+.morning-card { background: #FFF3C4; }
+.morning-card svg:first-child { flex: none; }
+.time-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.time-row .t { flex: none; width: 64px; font-family: var(--head); font-weight: 900; font-size: 24px; line-height: 1; color: var(--ink); text-align: center; }
+.time-row .t small { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+.time-ico { flex: none; width: 44px; height: 44px; border-radius: 14px; background: #FFF3C4; display: flex; align-items: center; justify-content: center; }
+.ready-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ready-btn { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 14px; border-radius: 20px; border: 2px solid #C9D3E6; background: #FFFFFF; font-family: var(--head); font-weight: 800; font-size: 18px; text-align: left; }
+.ready-btn .tick { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #C9D3E6; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #FFFFFF; }
+.ready-btn[aria-pressed='true'] { background: #D7F2E6; border-color: var(--green); }
+.ready-btn[aria-pressed='true'] .tick { background: var(--green); border-color: var(--green); }
+.ready-count { text-align: center; font-family: var(--head); font-weight: 900; font-size: 20px; margin-top: 14px; color: var(--green); }
+.edit-row { display: flex; gap: 10px; align-items: flex-end; }
+.edit-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); min-width: 0; }
+.edit-row input, .pin-input { font: inherit; font-size: 17px; color: var(--ink); min-height: 48px; border: 2px solid #C9D3E6; border-radius: 14px; padding: 0 12px; background: #FFFFFF; width: 100%; text-transform: none; letter-spacing: 0; }
+.edit-row input[type='time'] { width: 130px; }
+.edit-row input:focus, .pin-input:focus { outline: none; border-color: var(--blue); }
+.pin-input { margin-top: 10px; font-size: 28px; letter-spacing: 0.4em; text-align: center; font-family: var(--head); font-weight: 800; }
+.chip-radio { position: relative; }
+.chip-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-radio span { display: flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 2px solid #C9D3E6; background: #FFFFFF; font-weight: 700; }
+.chip-radio input:checked + span { background: var(--ink); border-color: var(--ink); color: #FFFFFF; }
+.chip-radio input:focus-visible + span { outline: 3px solid var(--blue); outline-offset: 2px; }
+.err-inline { color: var(--red); font-weight: 700; text-align: center; min-height: 1em; }
+.err-inline:empty { display: none; }
+
+/* ---------- weather ---------- */
+.section-link { margin-bottom: 10px; }
+.more { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 700; color: var(--blue); }
+.wx-card { padding: 14px 16px; }
+.wx-ico { flex: none; width: 56px; height: 56px; border-radius: 18px; background: #E3F4FA; display: flex; align-items: center; justify-content: center; }
+.wx-card.big .wx-ico { width: 72px; height: 72px; border-radius: 22px; }
+.wx-card.big .title { font-size: 26px; }
+.wx-card .lo { color: var(--muted); font-weight: 700; }
+.wx-label { display: inline-block; font-family: var(--body); font-size: 13px; font-weight: 700; color: var(--teal); background: #E3F4FA; border-radius: 10px; padding: 2px 8px; vertical-align: middle; }
+.wear { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.wear li { font-size: 15px; line-height: 1.4; padding-left: 26px; position: relative; }
+.wear li::before { content: '👕'; position: absolute; left: 0; top: 0; font-size: 15px; }
+.wear li:nth-child(n+2)::before { content: '•'; left: 8px; color: var(--muted); font-weight: 900; }
+.note > svg { flex: none; }

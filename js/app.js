@@ -1,6 +1,8 @@
 import * as I from './icons.js';
 import { unlock, savedCode, forgetCode, openFile } from './lock.js';
 import { addPhoto, removePhoto, photosFor, shrink } from './store.js';
+import * as S from './shared.js';
+import * as Wx from './weather.js';
 
 const app = document.getElementById('app');
 let T = null; // the trip, once unlocked
@@ -113,6 +115,7 @@ function home() {
       ${heroBottom}
     </header>
     ${nextCard}
+    ${homeMornings(t)}
     ${todayBlock}
     <div class="tiles">
       <a class="big-tile" href="#/trip" style="background:var(--blue);color:#FFFFFF">${I.bulletTrain(64)}<span>Getting around</span></a>
@@ -121,6 +124,10 @@ function home() {
       <a class="big-tile" href="#/tickets" style="background:#FFE58A">${I.ticket(44)}<span>Tickets</span></a>
       <a class="wide-tile" href="#/places"><img src="${placeImg}" alt=""><span>Places and big days</span></a>
       <a class="big-tile small" href="#/phrases" style="background:#D6F1F8"><span class="say" lang="ja">こんにちは</span><span>Phrases and translate</span></a>
+    </div>
+    <div class="section">
+      <a class="row section-link" href="#/weather"><span class="section-title grow" style="margin:0">${during ? 'Weather today and tomorrow' : 'Weather in Japan'}</span><span class="more">All days ${I.chevron(16)}</span></a>
+      <div class="stack tight" data-weather="next" style="margin-top:10px"><p class="sub">Loading the weather…</p></div>
     </div>
     <div class="section">
       <p class="section-title">Find nearby</p>
@@ -139,9 +146,20 @@ function home() {
         <span class="grow" style="font-size:15px">${esc(summariseTodo(todo))}</span>
         ${I.chevron()}
       </a></div>` : ''}
-    <p class="small-print" style="margin-top:24px">Trip details updated ${fmt(T.updated)}</p>
+    <div class="section"><div class="link-row" style="justify-content:center;margin:0"><a href="#/mornings">${I.clock(20)} Morning plans</a><a href="#/parent">${I.lock(18)} ${S.parent() ? `Parent mode (${esc(S.parent())})` : 'Parent mode'}</a></div></div>
+    <p class="small-print" style="margin-top:12px">Trip details updated ${fmt(T.updated)}</p>
     <div class="end-space"></div>
   </div>`;
+}
+
+function homeMornings(t) {
+  const tom = iso(new Date(parse(t).getTime() + 86400000));
+  const cards = [];
+  const mt = morningFor(t);
+  if (mt) cards.push(morningCard(mt, 'Today'));
+  const mn = morningFor(tom);
+  if (mn) cards.push(morningCard(mn, 'Tomorrow'));
+  return cards.length ? `<div class="section stack tight">${cards.join('')}</div>` : '';
 }
 
 function summariseTodo(todo) {
@@ -240,6 +258,7 @@ function journey(id) {
       <p class="sub" style="font-size:15px;margin-top:6px">${esc(j.sub)}</p>
       <div class="badges" style="margin-top:12px">${statusBadge(j)}</div>
     </div>
+    ${morningFor(j.date) && T.journeys.find((x) => x.date === j.date) === j ? `<div style="margin:12px 16px 0">${morningCard(morningFor(j.date), 'Before we go')}</div>` : ''}
     ${bagNote}
     ${j.tip ? `<div class="note note-yellow"><div><p class="title">Tip</p><p>${esc(j.tip)}</p></div></div>` : ''}
     <div class="steps">${steps}</div>
@@ -525,6 +544,130 @@ function zoom(src) {
   document.body.appendChild(el);
 }
 
+/* ---------- morning plans ---------- */
+const NAMES = () => T.travellers.map((p) => p.name);
+let editing = null; // date of the morning plan a parent is changing
+
+const to24 = (t) => { const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec(t || ''); if (!m) return ''; let h = +m[1] % 12; if (m[3].toLowerCase() === 'pm') h += 12; return `${String(h).padStart(2, '0')}:${m[2]}`; };
+const to12 = (v) => { const [h, m] = v.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`; };
+const morningFor = (date) => T.mornings.find((m) => m.date === date);
+const TIME_ICON = { bags: () => I.backpack(36), food: () => I.food(), lobby: () => I.lobby() };
+
+function morningCard(m, label) {
+  const first = S.timesFor(m)[0];
+  const r = S.ready(m.date);
+  const n = NAMES().filter((x) => r[x]).length;
+  return `<a class="card card-link morning-card" href="#/morning/${m.date}">${I.clock(40)}
+    <span class="grow"><span class="eyebrow" style="display:block">${label} · ${fmt(m.date)}</span>
+    <span class="title" style="display:block;margin-top:2px">Morning plan</span>
+    <span class="sub" style="display:block">${esc(S.timesFor(m).filter((t) => t.kind).map((t) => `${t.title.split(' ')[0]} ${t.time}`).slice(0, 3).join(' · ') || first.time)}</span>
+    ${n ? `<span class="sub" style="display:block;font-weight:700;color:var(--green)">${n} of 8 ready</span>` : ''}</span>${I.chevron()}</a>`;
+}
+
+function morning(date) {
+  const m = morningFor(date);
+  if (!m) return notFound();
+  const isParent = !!S.parent();
+  const times = S.timesFor(m);
+  const r = S.ready(date);
+  const names = NAMES();
+  const count = names.filter((n) => r[n]).length;
+  const notReady = names.filter((n) => !r[n]);
+  const rows = editing === date
+    ? `<form class="stack tight" id="timeform" data-date="${date}">
+        ${times.map((t, i) => `<div class="card pad edit-row"><label>Time<input type="time" name="time${i}" value="${to24(t.time)}" required></label><label class="grow">What<input name="title${i}" value="${esc(t.title)}" required></label></div>`).join('')}
+        <button class="btn" type="submit">Save times</button>
+        <button class="btn ink" type="button" data-act="cancel-edit">Cancel</button>
+        ${S.changedTimes(date) ? '<button class="btn ink" type="button" data-act="reset-times">Go back to the suggested times</button>' : ''}
+      </form>`
+    : times.map((t) => `<div class="card time-row"><div class="t">${esc(t.time.replace(/(am|pm)$/, ''))}<small>${esc((t.time.match(/(am|pm)$/) || [''])[0])}</small></div><div class="grow"><p class="title" style="font-size:17px">${esc(t.title)}</p>${t.detail ? `<p class="sub">${esc(t.detail)}</p>` : ''}</div>${TIME_ICON[t.kind] ? `<span class="time-ico">${TIME_ICON[t.kind]()}</span>` : ''}</div>`).join('');
+  return `<div class="screen" style="background:#FFF6E5">
+    <header class="bar dark-text" style="background:#FFC93C">
+      <div class="back-space"></div>
+      <p class="eyebrow">${fmt(date)} · ${esc(m.where)}</p>
+      <h1>Morning plan</h1>
+      <p class="lead">${esc(m.headline)}</p>
+    </header>
+    <div class="section stack tight">${rows}</div>
+    ${editing === date ? '' : `
+    ${isParent ? `<div class="section"><button type="button" class="btn ink" data-act="edit-times">${I.lock(20)} Change the times</button></div>` : ''}
+    <div class="section">
+      <h2 class="section-title" style="font-size:22px;font-weight:900">Packed and ready?</h2>
+      <p class="sub" style="margin:-4px 0 12px">Tap your name when your bag is zipped and you're ready to go.</p>
+      <div class="ready-grid">${names.map((n) => `<button type="button" class="ready-btn" data-ready="${date}|${esc(n)}" aria-pressed="${!!r[n]}"><span class="tick" aria-hidden="true">${r[n] ? '✓' : ''}</span>${esc(n)}</button>`).join('')}</div>
+      <p class="ready-count">${count === names.length ? 'Everyone is ready. Let’s go!' : `${count} of ${names.length} ready`}</p>
+      ${isParent && notReady.length && count ? `<p class="sub" style="text-align:center">Still getting ready: ${esc(notReady.join(', '))}</p>` : ''}
+    </div>
+    <div class="note note-blue">${I.clock(36)}<div><p class="title">${S.changedTimes(date) ? 'Times changed by a parent' : 'Suggested times'}</p><p>Parents can change these with the parent PIN. For now, ticks and changes stay on this phone. The family sharing update will show them on everyone's phone, with reminders 10 minutes before each time.</p></div></div>`}
+    <div class="end-space"></div>
+  </div>`;
+}
+
+function mornings() {
+  return `<div class="screen" style="background:#FFF6E5">
+    ${header('Morning plans', 'Wake-up, bags, breakfast and lobby times for each big morning.', '#FFC93C', true)}
+    <div class="section stack tight">${T.mornings.map((m) => morningCard(m, m.headline.split(/[.!]/)[0])).join('')}</div>
+    <div class="end-space"></div>
+  </div>`;
+}
+
+/* ---------- parent mode ---------- */
+function parentScreen() {
+  const who = S.parent();
+  return `<div class="screen">
+    ${header('Parent mode', who ? `Unlocked for ${esc(who)} on this phone.` : 'For Steve, Katrina and Kim.', 'var(--ink)')}
+    ${who ? `<div class="section stack">
+        <div class="card pad"><p class="title">You can now</p><ul class="bullets" style="margin-top:8px"><li>Change the times on any morning plan</li><li>See who still isn't ready</li></ul></div>
+        <a class="btn" href="#/mornings">Go to morning plans</a>
+        <button type="button" class="btn ink" data-act="leave-parent">Leave parent mode</button>
+      </div>`
+    : `<form class="section stack" id="pinform">
+        <div class="card pad"><p class="title">Who are you?</p><div class="chips" style="padding:10px 0 0">${T.parents.map((n, i) => `<label class="chip-radio"><input type="radio" name="who" value="${esc(n)}"${i === 0 ? ' checked' : ''}><span>${esc(n)}</span></label>`).join('')}</div></div>
+        <div class="card pad"><label class="title" for="pin">Parent PIN</label><input id="pin" class="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required></div>
+        <p class="err-inline" id="pinerr" role="alert"></p>
+        <button class="btn" type="submit">${I.lock(20)} Unlock</button>
+      </form>`}
+    <div class="end-space"></div>
+  </div>`;
+}
+
+/* ---------- weather ---------- */
+function weatherScreen() {
+  return `<div class="screen">
+    ${header('Weather and what to wear', 'Forecasts start about 2 weeks ahead. Before that, the usual December weather.', 'var(--teal)')}
+    <div class="section stack tight" data-weather="all"><p class="empty">Loading the weather…</p></div>
+    <p class="small-print">Forecasts from Open-Meteo. Temperatures in °C.</p>
+    <div class="end-space"></div>
+  </div>`;
+}
+
+function wxCard(w, big = false) {
+  const d = Wx.describe(w.code);
+  return `<div class="card wx-card${big ? ' big' : ''}">
+    <div class="row">
+      <span class="wx-ico">${I.weatherIcon(d.icon, big ? 56 : 44)}</span>
+      <div class="grow"><p class="eyebrow">${fmt(w.date)} · ${esc(w.placeName)}</p>
+      <p class="title" style="margin-top:2px">${w.max}° <span class="lo">/ ${w.min}°</span> <span class="wx-label">${esc(w.forecast ? d.label : 'Usual for December')}</span></p>
+      ${w.forecast && w.rain !== null ? `<p class="sub">${w.rain}% chance of rain</p>` : ''}</div>
+    </div>
+    <ul class="wear">${Wx.whatToWear(w).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+  </div>`;
+}
+
+async function hydrateWeather() {
+  const boxes = app.querySelectorAll('[data-weather]');
+  if (!boxes.length) return;
+  const t = today();
+  const all = await Wx.tripWeather(T, t < T.start ? T.start : t).catch(() => null);
+  if (!all) return;
+  boxes.forEach((box) => {
+    const mode = box.dataset.weather;
+    let list = all.filter((w) => w.date >= t);
+    if (mode === 'next') list = list.slice(0, 2);
+    box.innerHTML = list.length ? list.map((w, i) => wxCard(w, mode === 'next' && i === 0)).join('') : '<p class="empty">The trip is over. Welcome home!</p>';
+  });
+}
+
 function notFound() {
   return `<div class="screen">${header('Not found', 'That page is not in the trip.', 'var(--ink)')}</div>`;
 }
@@ -558,21 +701,21 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent'] },
   { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
 ];
 // Where the floating back button goes from each screen.
 const BACK = {
-  journey: ['#/trip', 'Trip'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets']
+  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets']
 };
 
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases,
-    journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg)
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen,
+    journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
   const current = TABS.find((t) => t.match.includes(name));
@@ -581,12 +724,20 @@ function render() {
   app.innerHTML = fab + view + `<div class="tabbar"><nav aria-label="Main">${TABS.map((t) => `<a href="#/${t.id}"${current === t ? ' aria-current="page"' : ''}>${t.icon}${t.label}</a>`).join('')}</nav></div>`;
   document.title = name === 'home' ? 'Japan 2026' : `${(app.querySelector('h1') || {}).textContent || 'Japan 2026'} · Japan 2026`;
   hydrate();
+  hydrateWeather();
 }
 
 // One listener for every button on every screen.
 app.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom]');
+  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act]');
   if (!t) return;
+  const act = t.dataset.act;
+  if (t.dataset.ready) { const [d, n] = t.dataset.ready.split('|'); S.toggleReady(d, n); render(); return; }
+  if (act === 'edit-times') { editing = location.hash.split('/')[2]; render(); return; }
+  if (act === 'cancel-edit') { editing = null; render(); return; }
+  if (act === 'reset-times') { S.resetTimes(editing); editing = null; render(); return; }
+  if (act === 'leave-parent') { S.leaveParent(); render(); return; }
+  if (act) return;
   if (t.dataset.filter) { tripFilter = t.dataset.filter; render(); }
   else if (t.dataset.big) showBig(t.dataset.big);
   else if (t.dataset.copy) {
@@ -595,6 +746,23 @@ app.addEventListener('click', async (e) => {
     await removePhoto(Number(t.dataset.remove));
     hydrate();
   } else if ('zoom' in t.dataset) zoom(t.src);
+});
+app.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.id === 'pinform') {
+    const ok = await S.checkPin(T, f.querySelector('#pin').value);
+    if (!ok) { f.querySelector('#pinerr').textContent = 'That PIN did not work. Try again.'; return; }
+    S.setParent(f.querySelector('input[name=who]:checked').value);
+    render();
+  } else if (f.id === 'timeform') {
+    const m = morningFor(f.dataset.date);
+    const fd = new FormData(f);
+    const times = S.timesFor(m).map((t, i) => ({ ...t, time: to12(fd.get(`time${i}`)), title: String(fd.get(`title${i}`)).trim() || t.title }));
+    S.saveTimes(m.date, times);
+    editing = null;
+    render();
+  }
 });
 app.addEventListener('change', async (e) => {
   const input = e.target.closest('[data-add]');
@@ -614,7 +782,7 @@ function flash(el, text) {
 
 function start() {
   if (!started) {
-    window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+    window.addEventListener('hashchange', () => { editing = null; render(); window.scrollTo(0, 0); });
     started = true;
   }
   render();

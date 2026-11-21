@@ -191,43 +191,32 @@ const FILTERS = [
 ];
 let tripFilter = 'all';
 
-// The whole trip as one slim row per day. Tap a day to open it, or open and close them all.
-let openDays = null;
-const DAY_COLOUR = { travel: 'var(--blue)', park: 'var(--purple)', '': 'var(--green)' };
+// Getting around: the journey cards under each date, as before. Tap a date to fold that day up or open it again.
+let closedDays = new Set();
 function trip() {
+  const f = FILTERS.find((x) => x.id === tripFilter) || FILTERS[0];
+  const list = T.journeys.filter((j) => !f.kinds || f.kinds.includes(j.kind));
   const t = today();
-  const days = T.days;
-  if (!openDays) openDays = new Set([(days.find((d) => d.date >= t) || days[0]).date]);
-  const name = (d) => (d && T.weatherPlaces[d.place] ? T.weatherPlaces[d.place].name : '');
-  const rows = days.map((d, i) => {
-    const prev = days[i - 1];
-    const js = T.journeys.filter((j) => j.date === d.date);
-    const pl = T.places.filter((p) => p.date === d.date);
-    const h = hotelFor(d.date);
-    const where = i === 0 ? `Sydney → ${name(d)}` : prev && prev.place !== d.place ? `${name(prev)} → ${name(d)}` : name(d);
-    const kinds = [...new Set(js.map((j) => j.kind))];
-    const open = openDays.has(d.date);
-    const what = js.length ? js.map((j) => j.title).join(' · ') : pl.length ? pl.map((p) => p.name).join(' · ') : 'Free day';
-    const body = open ? `<div class="day-body">
-        ${morningFor(d.date) ? `<a class="mini" href="#/morning/${d.date}">${I.clock(34)}<span class="grow"><b>Morning plan</b><small>${esc(morningFor(d.date).headline)}</small></span>${I.chevron(18)}</a>` : ''}
-        ${js.map((j) => `<a class="mini" href="#/journey/${j.id}">${I.kindTile(j.kind, 40, true)}<span class="grow"><b>${esc(j.title)}</b><small>${esc(j.sub)}</small>${status(j) === 'book' ? '<span class="status st-book">To book</span>' : ''}</span>${I.chevron(18)}</a>`).join('')}
-        ${pl.map((p) => `<a class="mini" href="#/places"><img src="${p.img}" alt="" loading="lazy"><span class="grow"><b>${esc(p.name)}</b><small>${esc(p.note)}</small></span>${I.chevron(18)}</a>`).join('')}
-        ${h ? `<a class="mini" href="#/hotel/${h.id}">${I.hotel(34)}<span class="grow"><b>Sleep at ${esc(h.short)}</b><small>${esc(h.city)}</small></span>${I.chevron(18)}</a>` : '<p class="mini-note">Home sweet home.</p>'}
-      </div>` : '';
-    return `<div class="day${open ? ' open' : ''}${d.date === t ? ' is-today' : ''}">
-      <button type="button" class="day-head" data-day="${d.date}" aria-expanded="${open}">
-        <span class="day-date" style="background:${DAY_COLOUR[d.type] || DAY_COLOUR['']}"><small>${DAYS[parse(d.date).getDay()]}</small><b>${dayNum(d.date)}</b><small>Dec</small></span>
-        <span class="grow day-where"><b>${esc(where)}</b><small>${d.date === t ? '<span class="today-pill">Today</span> ' : ''}${esc(what)}</small></span>
-        <span class="day-kinds">${kinds.slice(0, 3).map((k) => I.kindTile(k, 28, true)).join('')}</span>
+  const dates = [...new Set(list.map((j) => j.date))];
+  const groups = dates.map((d) => {
+    const js = list.filter((j) => j.date === d);
+    const open = !closedDays.has(d);
+    return `<div class="day-group${open ? ' open' : ''}">
+      <button type="button" class="day-label day-toggle" data-day="${d}" aria-expanded="${open}">
+        <span class="grow">${fmt(d)}${d === t ? '<span class="today-pill">Today</span>' : ''}${open ? '' : `<small>${js.length} journey${js.length > 1 ? 's' : ''}</small>`}</span>
         <span class="day-chev">${I.chevron(18)}</span>
-      </button>${body}
+      </button>
+      ${open ? `<div class="stack">${js.map(journeyCard).join('')}</div>` : ''}
     </div>`;
   }).join('');
   const todo = T.journeys.filter((j) => status(j) === 'book').length;
   return `<div class="screen">
-    ${header('The whole trip', `${days.length} days · ${todo} journeys still to book`, 'var(--blue)')}
+    ${header('Getting around', `${T.journeys.length} journeys · ${todo} still to book`, 'var(--blue)')}
+    <div class="chips" role="group" aria-label="Show">
+      ${FILTERS.map((x) => `<button type="button" class="chip" data-filter="${x.id}" aria-pressed="${x.id === f.id}">${x.label}</button>`).join('')}
+    </div>
     <div class="day-tools"><button type="button" class="chip" data-act="open-all">Expand all</button><button type="button" class="chip" data-act="close-all">Collapse all</button></div>
-    <div class="days">${rows}</div>
+    <div class="section stack" style="padding-top:6px">${groups || '<p class="empty">Nothing here.</p>'}</div>
     <div class="end-space"></div>
   </div>`;
 }
@@ -1255,9 +1244,9 @@ app.addEventListener('click', async (e) => {
   if (t.dataset.app) { const [a, n] = t.dataset.app.split('|'); S.toggleApp(a, n); render(); return; }
   if (t.dataset.ppEdit) { ppState.editing = t.dataset.ppEdit; render(); window.scrollTo(0, 0); return; }
   if (act === 'pp-cancel') { ppState.editing = null; render(); return; }
-  if (t.dataset.day) { const d = t.dataset.day; if (openDays.has(d)) openDays.delete(d); else openDays.add(d); render(); return; }
-  if (act === 'open-all') { openDays = new Set(T.days.map((d) => d.date)); render(); return; }
-  if (act === 'close-all') { openDays = new Set(); render(); return; }
+  if (t.dataset.day) { const d = t.dataset.day; if (closedDays.has(d)) closedDays.delete(d); else closedDays.add(d); render(); return; }
+  if (act === 'open-all') { closedDays = new Set(); render(); return; }
+  if (act === 'close-all') { closedDays = new Set(T.journeys.map((j) => j.date)); render(); return; }
   if (t.dataset.vote) { const [d, kind, val] = t.dataset.vote.split('|'); S.vote(d, S.me(), kind, val); render(); return; }
   if (t.dataset.preset) {
     const p = t.dataset.preset;

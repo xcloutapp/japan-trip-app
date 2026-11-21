@@ -13,6 +13,18 @@ export function forgetCode() {
 
 const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
+// Opens a locked ticket picture (made by tools/encrypt-file.mjs) and returns a link the page can show.
+let fileKey = null;
+export async function openFile(trip, src) {
+  if (!fileKey) fileKey = await crypto.subtle.importKey('raw', fromB64(trip.fileKey), 'AES-GCM', false, ['decrypt']);
+  const buf = new Uint8Array(await (await fetch(src)).arrayBuffer());
+  const tlen = buf[0];
+  const type = new TextDecoder().decode(buf.slice(1, 1 + tlen));
+  const iv = buf.slice(1 + tlen, 13 + tlen);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, fileKey, buf.slice(13 + tlen));
+  return URL.createObjectURL(new Blob([plain], { type }));
+}
+
 export async function unlock(rawCode, remember) {
   const code = normalise(rawCode);
   let box;

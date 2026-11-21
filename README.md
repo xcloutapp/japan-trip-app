@@ -3,16 +3,20 @@
 A phone app for our family, 10 to 24 December 2026. It installs from a link onto
 iPhones (Safari, then **Share > Add to Home Screen**) and works with no internet once opened.
 
-## What's in it (stage 1)
+## What's in it
 
 - **Home**: countdown before the trip. During the trip it shows today, the next journey and tonight's hotel.
 - **Getting around**: every journey with its picture, colour, bag badge and booking status.
   Tap one for the step-by-step travel day and the "Book it" helper cards.
 - **Our bags**: where the big suitcases are each day, including the 17 Dec send-ahead.
-- **Hotels**, **Places and big days**, **Tickets** (what's booked and what's still to book).
+- **Hotels** (tap one for address, Maps, phone, rooms and a "show the taxi driver" screen),
+  **Places and big days**.
+- **Our bags**: every "send suitcases ahead" option and a page for each day.
+- **Tickets wallet**: booking numbers, e-tickets, ticket pictures, plus photos you add on your own phone.
+- **Phrases and translating**, emergency numbers, and "Find nearby" buttons (7-Eleven, food, station, ATM).
 
-Coming next: tickets wallet with QR codes and booking numbers, parent PIN and morning plans,
-then family messages, reminders and the photo diary.
+Coming next: parent PIN, morning plans and weather, then family messages, reminders, photos,
+Shout (who owes who) and dinner voting.
 
 ## Privacy
 
@@ -24,6 +28,7 @@ QR codes and the unlocked `trip.json` must never be committed. Search engines ar
 
 1. Edit the unlocked `trip.json` (kept outside this repo).
 2. `node tools/encrypt.mjs path/to/trip.json <family code>` writes `data/trip.enc.json`.
+   Ticket pictures: `node tools/encrypt-file.mjs path/to/trip.json picture.jpg data/files/name.enc`.
 3. `node tools/release.mjs` refreshes the offline file list so every phone picks up the change.
 4. Commit and push. Phones show "The trip has been updated" next time they're online.
 

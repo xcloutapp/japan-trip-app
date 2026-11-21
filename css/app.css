@@ -455,9 +455,13 @@ a.ticket-slot { color: var(--ink); }
 .day-group.open .day-chev { transform: rotate(90deg); }
 
 /* QR codes to scan at a gate: big, sharp, on white */
-.qr-card { padding: 16px; text-align: center; }
+.qr-card { padding: 16px; text-align: center; margin: 0; }
 .qr-card img { width: 100%; max-width: 320px; margin: 0 auto; display: block; image-rendering: pixelated; background: #FFFFFF; }
 .qr-card figcaption { margin-top: 10px; font-size: 15px; color: var(--muted); }
 .qr-card figcaption b { color: var(--ink); }
 .qr-zoom { background: #FFFFFF; }
 .qr-zoom img { width: 92vw; max-width: 92vw; height: auto; max-height: 80vh; image-rendering: pixelated; }
+.qr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qr-card.small { padding: 10px; }
+.qr-card.small figcaption { font-size: 13px; margin-top: 6px; }
+.zoom-cap { font-family: var(--head); font-weight: 900; font-size: 24px; color: var(--ink); margin: 0; }

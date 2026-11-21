@@ -848,6 +848,60 @@ async function diaryPrompt(file) {
   });
 }
 
+/* dinner: what do we feel like, and where shall we go? */
+const FOODS = [['ramen', 'Ramen', '🍜'], ['sushi', 'Sushi', '🍣'], ['okonomiyaki', 'Okonomiyaki', '🥞'], ['bbq', 'Barbecue', '🥩'], ['fried', 'Tempura or crumbed', '🍤'], ['hotpot', 'Hotpot', '🍲'], ['noodles', 'Udon or noodles', '🥢'], ['western', 'Pizza or burgers', '🍕'], ['konbini', '7-Eleven picnic', '🍙']];
+const nights = () => { const out = []; for (let d = T.start; d < T.end; d = iso(new Date(parse(d).getTime() + 86400000))) out.push(d); return out; };
+function dinner(arg) {
+  const me = S.me();
+  if (!me) return whoGate('Dinner', 'var(--red)');
+  const all = nights();
+  const t = today();
+  const date = all.includes(arg) ? arg : all.includes(t) ? t : all[0];
+  const hotel = hotelFor(date);
+  const picks = ((T.dinners || {})[hotel && hotel.id] || []);
+  const v = S.votes(date);
+  const who = (kind, val) => Object.entries(v).filter(([, x]) => x && x[kind] === val).map(([n]) => n);
+  const mine = v[me] || {};
+  const foodCounts = FOODS.map(([id]) => who('food', id).length);
+  const topFood = Math.max(0, ...foodCounts);
+  const favs = FOODS.filter((f, i) => topFood && foodCounts[i] === topFood).map((f) => f[0]);
+  const placeCounts = picks.map((p) => who('place', p.id).length);
+  const topPlace = Math.max(0, ...placeCounts);
+  const leader = topPlace ? picks[placeCounts.indexOf(topPlace)] : null;
+  const isTonight = date === t;
+  return `<div class="screen">
+    <header class="bar" style="background:var(--red)">
+      <div class="back-space"></div>
+      <p class="eyebrow" style="color:#FFE3E0">${fmt(date)}${hotel ? ` · near ${esc(hotel.short)}` : ''}</p>
+      <h1>${isTonight ? 'Dinner tonight' : 'Dinner'}</h1>
+      <p class="lead">Vote for what you feel like and where to go. Everyone sees the votes.</p>
+    </header>
+    <div class="night-row">${all.map((d) => `<a href="#/dinner/${d}" class="night${d === date ? ' on' : ''}">${DAYS[parse(d).getDay()]}<b>${dayNum(d)}</b></a>`).join('')}</div>
+    ${leader ? `<div class="note note-green"><span class="big-emoji">🏆</span><div><p class="title">${esc(leader.name)} is winning</p><p>${topPlace} vote${topPlace > 1 ? 's' : ''}: ${esc(who('place', leader.id).join(', '))}</p></div></div>` : ''}
+    <div class="section"><h2 class="section-title">What do we feel like?</h2>
+      <div class="food-grid">${FOODS.map(([id, label, em], i) => `<button type="button" class="food-btn${favs.includes(id) ? ' top' : ''}" data-vote="${date}|food|${id}" aria-pressed="${mine.food === id}"><span class="em">${em}</span><span class="lbl">${label}</span>${foodCounts[i] ? `<span class="cnt">${foodCounts[i]}</span>` : ''}</button>`).join('')}</div>
+      ${topFood ? `<p class="sub" style="margin-top:8px">${FOODS.filter((f) => favs.includes(f[0])).map((f) => `${f[1]}: ${esc(who('food', f[0]).join(', '))}`).join('<br>')}</p>` : ''}
+    </div>
+    <div class="section"><h2 class="section-title">Where shall we go?</h2>
+      ${picks.length ? `<div class="stack">${picks.map((p, i) => `<div class="card pad dine${favs.includes(p.food) ? ' match' : ''}">
+        ${favs.includes(p.food) ? '<p class="match-tag">Matches what we feel like</p>' : ''}
+        <div class="row" style="align-items:flex-start"><span class="big-emoji">${(FOODS.find((f) => f[0] === p.food) || [0, 0, '🍽️'])[2]}</span>
+        <div class="grow"><p class="title">${esc(p.name)}</p><p class="jp" lang="ja">${esc(p.jp)}</p><p class="sub">${esc(p.area)} · ${esc(p.price)}</p></div></div>
+        <p style="margin-top:8px;font-size:15px;line-height:1.4">${esc(p.note)}</p>
+        ${p.book ? '<p class="sub" style="font-weight:700;color:var(--orange)">Best to book ahead for 8 (ask the hotel front desk).</p>' : ''}
+        <div class="row" style="margin-top:10px;gap:10px">
+          <button type="button" class="vote-btn" data-vote="${date}|place|${p.id}" aria-pressed="${mine.place === p.id}">${mine.place === p.id ? '✓ My vote' : 'Vote'}${placeCounts[i] ? ` · ${placeCounts[i]}` : ''}</button>
+          <a class="map-btn" href="https://maps.apple.com/?q=${encodeURIComponent(`${p.jp} ${hotel.city.split(' ')[0]}`)}" target="_blank" rel="noopener">Map</a>
+        </div>
+        ${placeCounts[i] ? `<p class="sub">${esc(who('place', p.id).join(', '))}</p>` : ''}
+      </div>`).join('')}</div>` : '<p class="empty">No picks for this night. We will be travelling or at the park.</p>'}
+      <p class="sub" style="margin-top:12px">Open hours change, so check the map before walking over. Tap your vote again to take it back.</p>
+    </div>
+    ${syncLine()}
+    <div class="end-space"></div>
+  </div>`;
+}
+
 /* phone notifications: morning reminders and new messages */
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const standalone = () => window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
@@ -888,6 +942,7 @@ function familyTiles() {
     <a href="#/chat" style="background:#D7F2E6">${I.chat(40)}<span>Messages</span>${n ? `<b class="count-dot">${n}</b>` : ''}</a>
     <a href="#/shout" style="background:#FFF3C4">${I.coins(40)}<span>Shout</span></a>
     <a href="#/diary" style="background:#FFD6E4">${I.photoBook(40)}<span>Photo diary</span></a>
+    <a href="#/dinner" style="background:#FFE0DB"><span class="big-emoji" style="font-size:34px">🍜</span><span>Dinner vote</span></a>
   </div></div>${pushOn() ? '' : remindCard()}`;
 }
 
@@ -920,7 +975,7 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner'] },
   { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
@@ -933,7 +988,7 @@ const BACK = {
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen,
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg),
     journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
@@ -949,10 +1004,11 @@ function render() {
 
 // One listener for every button on every screen.
 app.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act],[data-me],[data-preset],[data-unshout],[data-undiary],[data-full]');
+  const t = e.target.closest('[data-filter],[data-big],[data-copy],[data-remove],[data-zoom],[data-ready],[data-act],[data-me],[data-preset],[data-unshout],[data-undiary],[data-full],[data-vote]');
   if (!t) return;
   const act = t.dataset.act;
   if (t.dataset.me) { S.setMe(t.dataset.me); if (location.hash === '#/me') location.hash = '#/home'; else render(); return; }
+  if (t.dataset.vote) { const [d, kind, val] = t.dataset.vote.split('|'); S.vote(d, S.me(), kind, val); render(); return; }
   if (t.dataset.preset) {
     const p = t.dataset.preset;
     t.closest('form').querySelectorAll('input[name=among]').forEach((c) => { c.checked = p === 'all' || familyOf(c.value) === p; });

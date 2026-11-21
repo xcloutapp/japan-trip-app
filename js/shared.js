@@ -75,9 +75,13 @@ export function resetTimes(date) {
 
 /* ---------- dinner votes ---------- */
 export const votes = (date) => st.votes[date] || {};
-export function vote(date, name, choice) {
-  st.votes[date] = { ...votes(date), [name]: choice };
-  send(C.setFields('state/votes', { [`${date}.${name}`]: choice }));
+// kind is 'food' (what we feel like) or 'place' (where to go). Tapping your choice again takes the vote back.
+export function vote(date, name, kind, choice) {
+  const mine = { ...(votes(date)[name] || {}) };
+  const v = mine[kind] === choice ? '' : choice;
+  mine[kind] = v;
+  st.votes[date] = { ...votes(date), [name]: mine };
+  send(C.setFields('state/votes', { [`${date}.${name}.${kind}`]: v }));
 }
 
 /* ---------- lists: messages, shouts, diary photos ---------- */

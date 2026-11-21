@@ -523,12 +523,15 @@ function tickets() {
 function ticketPage(id) {
   const k = T.tickets.find((x) => x.id === id);
   if (!k) return notFound();
+  const qrs = (k.files || []).filter((f) => f.qr);
+  const files = (k.files || []).filter((f) => !f.qr);
   return `<div class="screen">
     ${header(esc(k.title), `${fmt(k.date)} · ${esc(k.detail)}`, '#FFC93C', true)}
     ${k.print ? `<div class="note note-yellow">${I.printer(36)}<div><p class="title">Print these before we go</p><p>The gates only take paper tickets.</p></div></div>` : ''}
+    ${qrs.length ? `<div class="section"><p class="section-title">Scan at the gate</p><div class="stack">${qrs.map((f) => `<figure class="card qr-card"><img data-file="${f.src}" data-zoom data-qr alt="${esc(f.label)}"><figcaption><b>${esc(f.label)}</b><br>Tap the code to show it full screen. Turn your screen brightness up.</figcaption></figure>`).join('')}</div></div>` : ''}
     ${(k.refs || []).length ? `<div class="section"><div class="stack tight">${k.refs.map((r) => `<button type="button" class="card ref-card" data-copy="${esc(r.value)}"><span class="eyebrow">${esc(r.label)}</span><span class="ref-big">${esc(r.value)}</span><span class="copy-hint">Tap to copy</span></button>`).join('')}</div></div>` : ''}
     ${(k.people || []).length ? `<div class="section"><p class="section-title">${esc(k.people[0].label)} for each person</p><div class="card phrase-list">${k.people.map((p) => `<button type="button" class="phrase" data-copy="${esc(p.value)}"><span class="grow en">${esc(p.name)}</span><span class="mono">${esc(p.value)}</span></button>`).join('')}</div></div>` : ''}
-    ${(k.files || []).length ? `<div class="section"><p class="section-title">Tickets and QR codes</p><div class="stack">${k.files.map((f) => `<figure class="card ticket-pic"><img data-file="${f.src}" alt="${esc(f.label)}"><figcaption>${esc(f.label)}</figcaption></figure>`).join('')}</div></div>` : ''}
+    ${files.length ? `<div class="section"><p class="section-title">Tickets and QR codes</p><div class="stack">${files.map((f) => `<figure class="card ticket-pic"><img data-file="${f.src}" alt="${esc(f.label)}"><figcaption>${esc(f.label)}</figcaption></figure>`).join('')}</div></div>` : ''}
     ${(k.notes || []).length ? `<div class="section"><div class="card pad"><ul class="bullets">${k.notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
     <div class="section"><p class="section-title">On this phone</p>
       <div class="local-photos" data-photos="${k.id}"></div>
@@ -549,9 +552,9 @@ async function hydrate() {
   }
 }
 
-function zoom(src) {
+function zoom(src, qr) {
   const el = document.createElement('div');
-  el.className = 'big-show photo-zoom';
+  el.className = `big-show photo-zoom${qr ? ' qr-zoom' : ''}`;
   el.innerHTML = `<img src="${src}" alt=""><div class="big-actions"><button type="button" data-act="close">Close</button></div>`;
   el.addEventListener('click', () => el.remove());
   document.body.appendChild(el);
@@ -1281,7 +1284,7 @@ app.addEventListener('click', async (e) => {
   } else if (t.dataset.remove) {
     await removePhoto(Number(t.dataset.remove));
     hydrate();
-  } else if ('zoom' in t.dataset) zoom(t.src);
+  } else if ('zoom' in t.dataset) zoom(t.src, 'qr' in t.dataset);
 });
 app.addEventListener('submit', async (e) => {
   e.preventDefault();

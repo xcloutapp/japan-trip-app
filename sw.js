@@ -1,6 +1,6 @@
 // Keeps the whole app on the phone so it works with no signal.
 // tools/release.mjs refreshes VERSION and FILES before each release.
-const VERSION = '202611210441';
+const VERSION = '202611210452';
 const CACHE = `japan-${VERSION}`;
 const FILES = [
   "./",
@@ -52,6 +52,23 @@ self.addEventListener('activate', (e) => {
       .then((keys) => Promise.all(keys.filter((k) => k.startsWith('japan-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Reminders and message alerts sent by the family's reminder sender.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data.json(); } catch { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Japan 2026', {
+    body: d.body || '', tag: d.tag, icon: 'img/icons/icon-192.png', data: { url: d.url || '#/home' }
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL(`./${(e.notification.data && e.notification.data.url) || ''}`, self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    if (list[0]) return list[0].navigate(url).then((c) => (c || list[0]).focus());
+    return self.clients.openWindow(url);
+  }));
 });
 
 self.addEventListener('fetch', (e) => {

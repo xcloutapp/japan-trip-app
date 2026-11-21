@@ -24,7 +24,23 @@ export const waiting = () => outbox.length;
 
 /* ---------- who is using this phone ---------- */
 export const me = () => get('me', null);
-export const setMe = (name) => put('me', name);
+export function setMe(name) {
+  put('me', name);
+  const p = get('push', null);
+  if (p) savePush(p.id, p.sub); // so message alerts skip your own messages
+}
+
+/* ---------- notifications ---------- */
+export async function pushKey() {
+  if (!C.ready()) return null;
+  const d = await C.getDoc('state/push').catch(() => null);
+  return d ? d.publicKey : null;
+}
+export function savePush(id, sub) {
+  put('push', { id, sub });
+  send(C.setFields(`push/${id}`, { sub, who: me() || 'Someone' }));
+}
+export const pushSaved = () => !!get('push', null);
 
 /* ---------- parent mode (this phone only) ---------- */
 export const parent = () => get('parent', null);

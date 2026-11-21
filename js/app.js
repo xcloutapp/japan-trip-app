@@ -607,6 +607,7 @@ function morning(date) {
 function mornings() {
   return `<div class="screen" style="background:#FFF6E5">
     ${header('Morning plans', 'Wake-up, bags, breakfast and lobby times for each big morning.', '#FFC93C', true)}
+    ${remindCard()}
     <div class="section stack tight">${T.mornings.map((m) => morningCard(m, m.headline.split(/[.!]/)[0])).join('')}</div>
     <div class="end-space"></div>
   </div>`;
@@ -847,13 +848,47 @@ async function diaryPrompt(file) {
   });
 }
 
+/* phone notifications: morning reminders and new messages */
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const standalone = () => window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+const pushOn = () => pushSupported() && Notification.permission === 'granted' && S.pushSaved();
+function remindCard() {
+  if (pushOn()) return `<div class="note note-green">${I.bell(36)}<div><p class="title">Reminders are on</p><p>This phone buzzes 10 minutes before each morning plan time, and when someone sends a message.</p></div></div>`;
+  if (!pushSupported()) {
+    const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return `<div class="note note-yellow">${I.bell(36)}<div><p class="title">Reminders</p><p>${apple && !standalone() ? 'To get reminders, open the app from its Home Screen icon, then turn them on here.' : 'This phone or browser can not get reminders from the app.'}</p></div></div>`;
+  }
+  if (Notification.permission === 'denied') return `<div class="note note-yellow">${I.bell(36)}<div><p class="title">Reminders are blocked</p><p>On iPhone: open Settings, then Notifications, then Japan 2026, and switch on Allow Notifications.</p></div></div>`;
+  return `<div class="note note-blue">${I.bell(36)}<div class="grow"><p class="title">Turn on reminders</p><p>Get a buzz 10 minutes before each morning plan time, and when someone sends a message.</p><button type="button" class="btn" data-act="push-on" style="margin-top:10px;min-height:48px;font-size:17px">Turn on reminders</button></div></div>`;
+}
+const b64u = (s) => { const p = '='.repeat((4 - (s.length % 4)) % 4); return Uint8Array.from(atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)); };
+async function turnOnPush(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Turning on…';
+  try {
+    // Ask first: iPhones only show the question straight after a tap.
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') throw new Error('denied');
+    const key = await S.pushKey();
+    if (!key) throw new Error('nokey');
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(key) });
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    S.savePush(hash, JSON.stringify(sub));
+    flash(btn, 'Reminders are on');
+  } catch (e) {
+    flash(btn, e.message === 'denied' ? 'Notifications were not allowed.' : e.message === 'nokey' ? 'Not ready yet. Steve is still switching reminders on.' : 'Could not turn them on. Try again with internet.');
+  }
+  render();
+}
+
 function familyTiles() {
   const n = unread();
   return `<div class="section"><p class="section-title">Family</p><div class="fam-tiles">
     <a href="#/chat" style="background:#D7F2E6">${I.chat(40)}<span>Messages</span>${n ? `<b class="count-dot">${n}</b>` : ''}</a>
     <a href="#/shout" style="background:#FFF3C4">${I.coins(40)}<span>Shout</span></a>
     <a href="#/diary" style="background:#FFD6E4">${I.photoBook(40)}<span>Photo diary</span></a>
-  </div></div>`;
+  </div></div>${pushOn() ? '' : remindCard()}`;
 }
 
 /* ---------- lock screen ---------- */
@@ -941,6 +976,7 @@ app.addEventListener('click', async (e) => {
   if (act === 'edit-times') { editing = location.hash.split('/')[2]; render(); return; }
   if (act === 'cancel-edit') { editing = null; render(); return; }
   if (act === 'reset-times') { S.resetTimes(editing); editing = null; render(); return; }
+  if (act === 'push-on') { turnOnPush(t); return; }
   if (act === 'leave-parent') { S.leaveParent(); render(); return; }
   if (act) return;
   if (t.dataset.filter) { tripFilter = t.dataset.filter; render(); }

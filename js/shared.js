@@ -38,9 +38,45 @@ export async function pushKey() {
 }
 export function savePush(id, sub) {
   put('push', { id, sub });
-  send(C.setFields(`push/${id}`, { sub, who: me() || 'Someone' }));
+  send(C.setFields(`push/${id}`, { sub, who: me() || 'Someone', ...pushPrefs() }));
 }
 export const pushSaved = () => !!get('push', null);
+// Which alerts this phone wants: morning reminders and message alerts can be switched off separately.
+export const pushPrefs = () => ({ remind: true, chat: true, ...(get('pushPrefs', {})) });
+export function setPushPref(key, on) {
+  const prefs = { ...pushPrefs(), [key]: on };
+  put('pushPrefs', prefs);
+  const p = get('push', null);
+  if (p) send(C.setFields(`push/${p.id}`, { [key]: on }));
+}
+
+/* ---------- travel apps checklist ---------- */
+export const apps = () => st.apps || {};
+export function toggleApp(app, name) {
+  const v = !((apps()[app] || {})[name]);
+  st.apps = { ...apps(), [app]: { ...(apps()[app] || {}), [name]: v } };
+  send(C.setFields('state/apps', { [`${app}.${name}`]: v }));
+}
+
+/* ---------- locked vault (passports): stored scrambled, fetched on demand ---------- */
+export async function vaultGet(path) {
+  const local = (await kvGet('vault')) || {};
+  if (C.ready()) {
+    try {
+      const d = await C.getDoc(`vault/${path}`);
+      local[path] = d;
+      kvSet('vault', local);
+      return d;
+    } catch { /* offline: use the copy on this phone */ }
+  }
+  return local[path] || null;
+}
+export async function vaultPut(path, fields) {
+  const local = (await kvGet('vault')) || {};
+  local[path] = { ...(local[path] || {}), ...fields };
+  await kvSet('vault', local);
+  send(C.setFields(`vault/${path}`, fields));
+}
 
 /* ---------- parent mode (this phone only) ---------- */
 export const parent = () => get('parent', null);
@@ -168,7 +204,8 @@ async function pull() {
   const meta = await C.getDoc('state/meta');
   const rev = meta ? meta.rev : 0;
   if (rev === st.rev) return false;
-  const [r, t, v] = await Promise.all(['ready', 'times', 'votes'].map((d) => C.getDoc(`state/${d}`)));
+  const [r, t, v, a] = await Promise.all(['ready', 'times', 'votes', 'apps'].map((d) => C.getDoc(`state/${d}`)));
+  st.apps = a || {};
   st.ready = r || {};
   st.times = Object.fromEntries(Object.entries(t || {}).map(([k, s]) => { try { return [k, JSON.parse(s)]; } catch { return [k, null]; } }).filter(([, x]) => x));
   st.votes = v || {};

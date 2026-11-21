@@ -447,3 +447,9 @@ a.ticket-slot { color: var(--ink); }
 .app-grid thead th { padding: 4px 1px; }
 .app-grid td { padding: 2px 1px; }
 .app-grid-wrap { padding: 8px 4px; }
+
+/* Getting around: date headings that fold a day up */
+.day-toggle { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 6px 4px; text-align: left; cursor: pointer; }
+.day-toggle small { display: block; font-family: var(--body, inherit); font-weight: 600; font-size: 14px; color: var(--muted); }
+.day-group .stack { margin-top: 8px; }
+.day-group.open .day-chev { transform: rotate(90deg); }

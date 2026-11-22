@@ -118,7 +118,6 @@ function home() {
       ${heroBottom}
     </header>
     ${nextCard}
-    <div class="section" style="padding-top:14px"><a class="up-btn" href="#/next"><span class="big-emoji">⏭️</span><span class="grow"><b>Coming up</b><small>Everything in the next 24 hours</small></span>${I.chevron()}</a></div>
     ${homeMornings(t)}
     ${todayBlock}
     <div class="tiles">
@@ -219,13 +218,19 @@ function trip() {
   return `<div class="screen">
     ${header('Getting around', `${T.journeys.length} journeys · ${todo} still to book`, 'var(--blue)')}
     <div class="section" style="padding-bottom:0"><a class="card card-link money-link" href="#/map"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">See the trip on a map</span><span class="sub" style="display:block">Hotels and routes, day by day</span></span>${I.chevron()}</a></div>
-    <div class="chips" role="group" aria-label="Show">
-      ${FILTERS.map((x) => `<button type="button" class="chip" data-filter="${x.id}" aria-pressed="${x.id === f.id}">${x.label}</button>`).join('')}
-    </div>
     <div class="day-tools"><button type="button" class="chip" data-act="open-all">Expand all</button><button type="button" class="chip" data-act="close-all">Collapse all</button></div>
     <div class="section stack" style="padding-top:6px">${groups || '<p class="empty">Nothing here.</p>'}</div>
     <div class="end-space"></div>
   </div>`;
+}
+
+// Step through the trip one journey at a time: buttons at the bottom, or swipe left and right.
+function journeyNav(j) {
+  const i = T.journeys.indexOf(j);
+  const prev = T.journeys[i - 1];
+  const next = T.journeys[i + 1];
+  const btn = (x, dir) => x ? `<a class="jnav ${dir}" href="#/journey/${x.id}" data-swipe="${dir}">${dir === 'prev' ? I.back() : ''}<span class="grow"><small>${dir === 'prev' ? 'Before' : 'Next'} · ${esc(fmt(x.date))}</small><b>${esc(x.title)}</b></span>${dir === 'next' ? I.chevron(18) : ''}</a>` : '<span class="jnav empty"></span>';
+  return `<div class="section jnav-row">${btn(prev, 'prev')}${btn(next, 'next')}</div>`;
 }
 
 function journey(id) {
@@ -285,6 +290,7 @@ function journey(id) {
     ${helpers ? `<div style="padding-top:4px">${helpers}</div>` : ''}
     ${todo.length ? '<p class="small-print">Times are examples until the tickets are booked.</p>' : ''}
     ${tonight && isLastOfDay ? `<div class="section"><a class="card card-link" href="#/hotel/${tonight.id}">${I.hotel(40)}<span class="grow"><span class="eyebrow" style="display:block">Tonight</span><span class="title" style="display:block">${esc(tonight.short)}</span></span>${I.chevron()}</a></div>` : ''}
+    ${journeyNav(j)}
     <div class="end-space"></div>
   </div>`;
 }
@@ -1449,3 +1455,19 @@ function showUpdate() {
   el.querySelector('button').addEventListener('click', () => location.reload());
   document.body.appendChild(el);
 }
+
+// Swipe left or right on a journey to go to the next or previous one.
+let swipeStart = null;
+app.addEventListener('touchstart', (e) => {
+  swipeStart = location.hash.startsWith('#/journey/') && e.touches.length === 1 ? [e.touches[0].clientX, e.touches[0].clientY] : null;
+}, { passive: true });
+app.addEventListener('touchend', (e) => {
+  if (!swipeStart) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipeStart[0];
+  const dy = t.clientY - swipeStart[1];
+  swipeStart = null;
+  if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 2) return;
+  const link = app.querySelector(`.jnav[data-swipe="${dx < 0 ? 'next' : 'prev'}"]`);
+  if (link) { location.hash = link.getAttribute('href'); window.scrollTo(0, 0); }
+}, { passive: true });

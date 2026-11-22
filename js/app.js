@@ -3,6 +3,7 @@ import { unlock, savedCode, forgetCode, openFile } from './lock.js';
 import { addPhoto, removePhoto, photosFor, shrink } from './store.js';
 import * as S from './shared.js';
 import * as Wx from './weather.js';
+import { moneyScreen, wireMoney } from './money.js';
 
 const app = document.getElementById('app');
 let T = null; // the trip, once unlocked
@@ -128,6 +129,9 @@ function home() {
       <a class="big-tile small" href="#/phrases" style="background:#D6F1F8"><span class="say" lang="ja">こんにちは</span><span>Phrases and translate</span></a>
     </div>
     ${familyTiles()}
+    <div class="section">
+      <a class="card card-link money-link" href="#/money"><span class="money-icon">¥</span><span class="grow"><span class="title" style="display:block">Money converter</span><span class="sub" style="display:block">Yen to Australian dollars, and back</span></span>${I.chevron()}</a>
+    </div>
     <div class="section">
       <p class="section-title">Find nearby</p>
       <div class="nearby">
@@ -1235,7 +1239,7 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner', 'settings', 'apps', 'passports', 'next'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner', 'settings', 'apps', 'passports', 'next', 'money'] },
   { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
@@ -1248,7 +1252,7 @@ const BACK = {
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg), settings, apps: appsScreen, passports, next: comingUp,
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg), settings, apps: appsScreen, passports, next: comingUp, money: () => moneyScreen(header),
     journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
@@ -1260,6 +1264,7 @@ function render() {
   hydrate();
   hydrateWeather();
   if (name === 'passports') loadPassports();
+  if (name === 'money') wireMoney(app);
   if (name === 'chat') requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
 }
 
@@ -1384,7 +1389,7 @@ function flash(el, text) {
 }
 
 // Re-draw the screen when the family changes something, unless someone is typing.
-const QUIET = ['shoutadd', 'parent', 'passports'];
+const QUIET = ['shoutadd', 'parent', 'passports', 'money'];
 let redrawLater = false;
 const typing = () => { const a = document.activeElement; return !!(a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'radio'); };
 function redraw() {

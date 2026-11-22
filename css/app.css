@@ -466,3 +466,15 @@ a.ticket-slot { color: var(--ink); }
 .qr-card.small figcaption { font-size: 13px; margin-top: 6px; }
 .zoom-cap { font-family: var(--head); font-weight: 900; font-size: 24px; color: var(--ink); margin: 0; }
 .btn.klook { background: #FF5B00; color: #FFFFFF; }
+
+/* Money converter */
+.money-link { align-items: center; }
+.money-icon { flex: none; width: 48px; height: 48px; border-radius: 14px; background: #2BB673; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: var(--head); font-weight: 900; font-size: 26px; }
+.fx { display: flex; flex-direction: column; gap: 6px; }
+.fx-row { display: flex; align-items: center; gap: 10px; background: #F2F5FA; border-radius: 16px; padding: 10px 14px; }
+.fx-cur { font-family: var(--head); font-weight: 900; font-size: 28px; color: var(--ink); min-width: 44px; }
+.fx-row input { flex: 1; min-width: 0; border: 0; background: none; font-family: var(--head); font-weight: 900; font-size: 34px; color: var(--ink); outline: none; text-align: right; }
+.fx-code { font-weight: 700; font-size: 13px; color: var(--muted); }
+.fx-eq { text-align: center; font-weight: 800; color: var(--muted); }
+.fx-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.fx-quick .chip { cursor: pointer; }

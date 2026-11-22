@@ -3,6 +3,8 @@ import { unlock, savedCode, forgetCode, openFile } from './lock.js';
 import { addPhoto, removePhoto, photosFor, shrink } from './store.js';
 import * as S from './shared.js';
 import * as Wx from './weather.js';
+import { moneyScreen, wireMoney } from './money.js';
+import { mapScreen, wireMap } from './map.js';
 
 const app = document.getElementById('app');
 let T = null; // the trip, once unlocked
@@ -129,6 +131,10 @@ function home() {
     </div>
     ${familyTiles()}
     <div class="section">
+      <a class="card card-link money-link" href="#/money"><span class="money-icon">¥</span><span class="grow"><span class="title" style="display:block">Money converter</span><span class="sub" style="display:block">Yen to Australian dollars, and back</span></span>${I.chevron()}</a>
+      <a class="card card-link money-link" href="#/map" style="margin-top:10px"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">Trip map</span><span class="sub" style="display:block">Where we are going, day by day</span></span>${I.chevron()}</a>
+    </div>
+    <div class="section">
       <p class="section-title">Find nearby</p>
       <div class="nearby">
         <a href="https://maps.apple.com/?q=7-Eleven" target="_blank" rel="noopener"><span class="seven">7</span>7-Eleven</a>
@@ -212,6 +218,7 @@ function trip() {
   const todo = T.journeys.filter((j) => status(j) === 'book').length;
   return `<div class="screen">
     ${header('Getting around', `${T.journeys.length} journeys · ${todo} still to book`, 'var(--blue)')}
+    <div class="section" style="padding-bottom:0"><a class="card card-link money-link" href="#/map"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">See the trip on a map</span><span class="sub" style="display:block">Hotels and routes, day by day</span></span>${I.chevron()}</a></div>
     <div class="chips" role="group" aria-label="Show">
       ${FILTERS.map((x) => `<button type="button" class="chip" data-filter="${x.id}" aria-pressed="${x.id === f.id}">${x.label}</button>`).join('')}
     </div>
@@ -1235,20 +1242,22 @@ function lockScreen(error) {
 
 /* ---------- router ---------- */
 const TABS = [
-  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner', 'settings', 'apps', 'passports', 'next'] },
-  { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey'] },
+  { id: 'home', label: 'Home', icon: I.tab.home, match: ['home', 'hotels', 'hotel', 'places', 'phrases', 'weather', 'mornings', 'morning', 'parent', 'chat', 'shout', 'shoutadd', 'diary', 'me', 'dinner', 'settings', 'apps', 'passports', 'next', 'money'] },
+  { id: 'trip', label: 'Trip', icon: I.tab.trip, match: ['trip', 'journey', 'map'] },
   { id: 'bags', label: 'Bags', icon: I.tab.bags, match: ['bags', 'bagday', 'send'] },
   { id: 'tickets', label: 'Tickets', icon: I.tab.tickets, match: ['tickets', 'ticket'] }
 ];
 // Where the floating back button goes from each screen.
 const BACK = {
-  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets'], shoutadd: ['#/shout', 'Shout'], apps: ['#/settings', 'Settings'], passports: ['#/settings', 'Settings']
+  journey: ['#/trip', 'Trip'], morning: ['#/mornings', 'Mornings'], hotel: ['#/hotels', 'Hotels'], bagday: ['#/bags', 'Bags'], send: ['#/bags', 'Bags'], ticket: ['#/tickets', 'Tickets'], shoutadd: ['#/shout', 'Shout'], apps: ['#/settings', 'Settings'], passports: ['#/settings', 'Settings'], map: ['#/trip', 'Trip']
 };
+
+const mapCtx = () => ({ T, I, esc, fmt, header, hotelFor });
 
 function render() {
   const [, name = 'home', arg] = (location.hash || '#/home').split('/');
   const screens = {
-    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg), settings, apps: appsScreen, passports, next: comingUp,
+    home, trip, bags, hotels, places, tickets, phrases, weather: weatherScreen, mornings, parent: parentScreen, chat, shout, shoutadd: shoutAdd, diary, me: meScreen, dinner: () => dinner(arg), settings, apps: appsScreen, passports, next: comingUp, money: () => moneyScreen(header), map: () => mapScreen(mapCtx()),
     journey: () => journey(arg), hotel: () => hotelPage(arg), send: () => sendPage(arg), bagday: () => bagDay(arg), ticket: () => ticketPage(arg), morning: () => morning(arg)
   };
   const view = (screens[name] || notFound)();
@@ -1260,6 +1269,8 @@ function render() {
   hydrate();
   hydrateWeather();
   if (name === 'passports') loadPassports();
+  if (name === 'money') wireMoney(app);
+  if (name === 'map') wireMap(app, mapCtx());
   if (name === 'chat') requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
 }
 
@@ -1384,7 +1395,7 @@ function flash(el, text) {
 }
 
 // Re-draw the screen when the family changes something, unless someone is typing.
-const QUIET = ['shoutadd', 'parent', 'passports'];
+const QUIET = ['shoutadd', 'parent', 'passports', 'money', 'map'];
 let redrawLater = false;
 const typing = () => { const a = document.activeElement; return !!(a && app.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'radio'); };
 function redraw() {

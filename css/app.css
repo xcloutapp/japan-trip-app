@@ -515,3 +515,11 @@ a.ticket-slot { color: var(--ink); }
 .map-btns .btn { flex: 1; min-height: 48px; font-size: 16px; }
 .btn.light { background: #EEF3FA; color: var(--ink); }
 .map-back { border: 0; background: none; color: var(--blue); font-weight: 800; font-size: 15px; margin-top: 10px; padding: 6px 0; }
+
+/* Before / Next journey buttons */
+.jnav-row { display: flex; gap: 10px; }
+.jnav { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 12px; color: var(--ink); text-decoration: none; }
+.jnav.next { text-align: right; }
+.jnav.empty { background: none; box-shadow: none; }
+.jnav small { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+.jnav b { display: block; font-size: 14px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

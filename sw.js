@@ -1,6 +1,6 @@
 // Keeps the whole app on the phone so it works with no signal.
 // tools/release.mjs refreshes VERSION and FILES before each release.
-const VERSION = '202611220011';
+const VERSION = '202611220027';
 const CACHE = `japan-${VERSION}`;
 const FILES = [
   "./",

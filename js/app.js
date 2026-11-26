@@ -122,7 +122,7 @@ function home() {
     ${todayBlock}
     <div class="tiles">
       <a class="big-tile" href="#/trip" style="background:var(--blue);color:#FFFFFF">${I.bulletTrain(64)}<span>Getting around</span></a>
-      <a class="big-tile" href="#/bags" style="background:var(--orange)">${I.bigBag(44)}<span>Our bags</span></a>
+      <a class="big-tile" href="#/map" style="background:var(--teal);color:#FFFFFF">${I.tripMap(52)}<span>Trip map</span></a>
       <a class="big-tile" href="#/hotels" style="background:#FFD6E4">${I.hotel(44)}<span>Hotels</span></a>
       <a class="big-tile" href="#/tickets" style="background:#FFE58A">${I.ticket(44)}<span>Tickets</span></a>
       <a class="wide-tile" href="#/places"><img src="${placeImg}" alt=""><span>Places and big days</span></a>
@@ -131,7 +131,6 @@ function home() {
     ${familyTiles()}
     <div class="section">
       <a class="card card-link money-link" href="#/money"><span class="money-icon">¥</span><span class="grow"><span class="title" style="display:block">Money converter</span><span class="sub" style="display:block">Yen to Australian dollars, and back</span></span>${I.chevron()}</a>
-      <a class="card card-link money-link" href="#/map" style="margin-top:10px"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">Trip map</span><span class="sub" style="display:block">Where we are going, day by day</span></span>${I.chevron()}</a>
     </div>
     <div class="section">
       <p class="section-title">Find nearby</p>
@@ -217,7 +216,7 @@ function trip() {
   const todo = T.journeys.filter((j) => status(j) === 'book').length;
   return `<div class="screen">
     ${header('Getting around', `${T.journeys.length} journeys · ${todo} still to book`, 'var(--blue)')}
-    <div class="section" style="padding-bottom:0"><a class="card card-link money-link" href="#/map"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">See the trip on a map</span><span class="sub" style="display:block">Hotels and routes, day by day</span></span>${I.chevron()}</a></div>
+    <div class="section" style="padding-bottom:0"><a class="card card-link money-link" href="#/map"><span class="money-icon" style="background:#0E7FA0">🗾</span><span class="grow"><span class="title" style="display:block">See the trip on a map</span><span class="sub" style="display:block">Hotels and routes, day by day</span></span>${I.chevron()}</a>${bagsLink('Where the suitcases are each day, and sending them ahead')}</div>
     <div class="day-tools"><button type="button" class="chip" data-act="open-all">Expand all</button><button type="button" class="chip" data-act="close-all">Collapse all</button></div>
     <div class="section stack" style="padding-top:6px">${groups || '<p class="empty">Nothing here.</p>'}</div>
     <div class="end-space"></div>
@@ -251,6 +250,8 @@ function journey(id) {
   if (j.bags === 'big') bagNote = `<div class="note note-orange"><span style="display:flex;flex-shrink:0">${I.suitcase(44)}${I.backpack(40)}</span><div><p class="title">Suitcases and backpacks</p><p>Everyone brings their big suitcase and their backpack.</p></div></div>`;
   else if (j.bags === 'small') bagNote = `<div class="note note-green"><span style="flex-shrink:0">${I.backpack(48)}</span><div><p class="title">Backpacks only today</p><p>${esc(j.bagNote || 'Just your backpack today.')}</p></div></div>`;
   else bagNote = `<div class="note note-blue"><div><p class="title">Day bags only</p><p>Leave the big bags at the hotel. Bring water, a jacket and your Suica.</p></div></div>`;
+  const bd = bagDayFor(j.date);
+  if (bd) bagNote = bagNote.replace(/^<div class="note([^"]*)">([\s\S]*)<\/div>$/, `<a class="note$1 card-link" href="#/bagday/${bd.id}">$2<span class="note-go">${I.chevron(18)}</span></a>`);
 
   const steps = j.steps.map((s, i) => {
     const b = s.booking && bookings.find((x) => x.id === s.booking);
@@ -315,6 +316,9 @@ function places() {
 
 /* ---------- bags ---------- */
 const bagPics = (w, s = 34) => w === 'us' ? `${I.suitcase(s)}<span style="margin-left:-10px">${I.backpack(s - 4)}</span>` : w === 'truck' ? I.truck(s) : I.backpack(s);
+// Bags no longer has a Home tile, so Getting around, each journey and Hotels link to it instead.
+const bagDayFor = (date) => T.bags.days.filter((d) => d.date <= date).pop() || T.bags.days[0];
+const bagsLink = (sub, style = 'margin-top:10px') => `<a class="card card-link money-link" href="#/bags" style="${style}"><span class="money-icon" style="background:#FFE8D1">${I.suitcase(26)}<span style="margin-left:-8px;display:flex">${I.backpack(22)}</span></span><span class="grow"><span class="title" style="display:block">Our bags</span><span class="sub" style="display:block">${sub}</span></span>${I.chevron()}</a>`;
 const hotelName = (id) => id === 'haneda' ? 'Haneda Airport, Terminal 3' : ((T.hotels.find((h) => h.id === id) || {}).short || id);
 const SEND_STATUS = { planned: ['Planned', 'st-booked'], optional: ['Optional', 'st-tap'], sent: ['Sent', 'st-sent'] };
 const sendStatus = (s) => { const [l, c] = SEND_STATUS[s.tracking ? 'sent' : s.status] || SEND_STATUS.optional; return `<span class="status ${c}">${l}</span>`; };
@@ -394,6 +398,7 @@ function hotels() {
   const nights = T.hotels.reduce((n, h) => n + daysBetween(h.checkIn, h.checkOut), 0);
   return `<div class="screen" style="background:#FFF4F7">
     ${header('Our hotels', `${T.hotels.length} hotels · ${nights} nights. Tap one for details.`, 'var(--pink)')}
+    <div class="section" style="padding-bottom:0">${bagsLink('Which hotels get the big suitcases, and sending them ahead', '')}</div>
     <div class="section stack" style="gap:16px">
       ${T.hotels.map((h) => {
         const n = daysBetween(h.checkIn, h.checkOut);
@@ -435,8 +440,12 @@ function hotelPage(id) {
     </div>
     <div class="section"><div class="card pad"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
       ${h.extra ? `<p class="sub" style="margin-top:10px">${esc(h.extra)}</p>` : ''}
-      <div class="row" style="gap:6px;font-size:13px;font-weight:600;margin-top:12px">${h.bags === 'big' ? I.suitcase() + I.backpack() + '<span>Suitcases and backpacks</span>' : I.backpack() + '<span>Backpacks only</span>'}</div>
     </div></div>
+    <div class="section"><p class="section-title">Our bags here</p>
+      <a class="note flush card-link ${h.bags === 'big' ? 'note-orange' : 'note-green'}" href="#/bagday/${bagDayFor(h.checkIn).id}"><span style="display:flex;flex-shrink:0;align-items:flex-end">${h.bags === 'big' ? I.suitcase(44) + I.backpack(38) : I.backpack(44)}</span><div class="grow"><p class="title">${h.bags === 'big' ? 'Suitcases and backpacks' : 'Backpacks only'}</p><p>${h.bags === 'big' ? 'Our big suitcases are with us at this hotel.' : 'The big suitcases are not here. Just your backpack.'}</p></div><span class="note-go">${I.chevron(18)}</span></a>
+      ${T.bags.sends.filter((x) => x.from === h.id || x.to === h.id).map((x) => `<div style="margin-top:10px">${sendCard(x)}</div>`).join('')}
+      ${bagsLink('Every day, and sending suitcases ahead')}
+    </div>
     <div class="section"><div class="card pad">
       <p class="eyebrow">Address</p><p class="title" style="margin-top:4px;font-size:17px">${esc(h.address)}</p>
       <a class="btn" href="https://maps.apple.com/?q=${q}" target="_blank" rel="noopener">Open in Maps ${I.external()}</a>

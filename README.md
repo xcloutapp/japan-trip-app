@@ -8,10 +8,11 @@ iPhones (Safari, then **Share > Add to Home Screen**) and works with no internet
 - **Home**: countdown before the trip. During the trip it shows today, the next journey and tonight's hotel.
 - **Getting around**: every journey with its picture, colour, bag badge and booking status.
   Tap one for the step-by-step travel day and the "Book it" helper cards.
-- **Our bags**: where the big suitcases are each day, including the 17 Dec send-ahead.
+- **Trip map**: an offline map of hotels and routes, day by day (big tile on Home).
 - **Hotels** (tap one for address, Maps, phone, rooms and a "show the taxi driver" screen),
   **Places and big days**.
-- **Our bags**: every "send suitcases ahead" option and a page for each day.
+- **Our bags**: where the big suitcases are each day and every "send suitcases ahead" option.
+  No Home tile: open it from the Bags tab, Getting around, any journey's bag note, or Hotels.
 - **Tickets wallet**: booking numbers, e-tickets, ticket pictures, plus photos you add on your own phone.
 - **Phrases and translating**, emergency numbers, and "Find nearby" buttons (7-Eleven, food, station, ATM).
 
